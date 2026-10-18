@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brown Bear Color Hunt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&family=Nunito:wght@700;900&display=swap">
+<style>
+/* Layout: an open coloring book. Thin top bar, the picture fills the page, crayon tray of animals to find along the bottom. */
+:root {
+  --paper: #fffdf6;
+  --ink: #1f1d2b;
+  --crayon-red: #e23b2e;
+  --crayon-yellow: #ffd23f;
+  --crayon-blue: #2f6fd6;
+  --crayon-green: #3bb54a;
+  --soft: #f1ede0;
+  --display: "Sniglet", "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+  --body: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--body); font-size: 18px;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  overflow: hidden;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3px; }
+
+.app {
+  height: 100%; display: flex; flex-direction: column; gap: 8px;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Chunky crayon-box buttons */
+.btn {
+  border: 3px solid var(--ink); border-radius: 18px; background: #fff;
+  box-shadow: 0 5px 0 var(--ink); transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.go {
+  padding: 14px 34px; font-family: var(--display); font-weight: 800; font-size: clamp(26px, 5vw, 36px);
+  background: var(--crayon-yellow);
+}
+
+/* Top bar */
+.bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bar .icon { width: 48px; height: 48px; font-size: 22px; display: grid; place-items: center; }
+.level { font-family: var(--display); font-weight: 800; font-size: clamp(20px, 3.6vw, 28px); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill {
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+  border: 3px solid var(--ink); border-radius: 999px; background: #fff;
+  font-family: var(--display); font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums;
+}
+.pill.score { background: var(--crayon-yellow); }
+.pill.bump { animation: bump .4s; }
+@keyframes bump { 50% { transform: scale(1.2) rotate(-4deg); } }
+
+/* The picture */
+.stage { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; }
+.stage svg.scene {
+  width: 100%; height: 100%; max-height: 100%;
+  touch-action: manipulation;
+}
+.frame { fill: none; stroke: var(--ink); stroke-width: 6; }
+.sc { fill: #fff; stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
+.sc.sky { stroke: none; fill: var(--paper); }
+.ln { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.scene .ln { stroke-width: 4; }
+
+/* Characters */
+.ch .line > *, .ch .paint > * { stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.ch .dot { fill: var(--ink); }
+.ch .wh { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.ch .hit { fill: transparent; cursor: pointer; }
+.ch.found .hit { cursor: default; }
+.ch-art { transform-box: fill-box; transform-origin: center; }
+.ch.found .ch-art { animation: pop .5s; }
+@keyframes pop { 40% { transform: scale(1.25); } }
+.ch.hint .ch-art { animation: wiggle .5s 3; }
+@keyframes wiggle { 25% { transform: rotate(-10deg) scale(1.1); } 75% { transform: rotate(10deg) scale(1.1); } }
+.pts { font-family: var(--display); font-weight: 800; font-size: 44px; fill: var(--crayon-red); stroke: #fff; stroke-width: 6; paint-order: stroke; pointer-events: none; animation: float 1.2s forwards; }
+@keyframes float { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
+.spark { pointer-events: none; animation: spark .7s forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes spark { from { opacity: 1; transform: translate(0,0) scale(1); } to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.3); } }
+.miss { fill: none; stroke: var(--ink); stroke-width: 3; opacity: .35; pointer-events: none; animation: miss .5s forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes miss { from { transform: scale(.2); } to { transform: scale(1.4); opacity: 0; } }
+
+/* Crayon tray */
+.tray {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  padding: 8px; border: 3px solid var(--ink); border-radius: 20px; background: var(--soft);
+}
+.slot {
+  position: relative; width: clamp(52px, 9vw, 72px); aspect-ratio: 1; max-width: 100%;
+  padding: 4px; border-radius: 14px; background: #fff;
+}
+.slot svg { width: 100%; height: 100%; display: block; }
+.slot.found::after {
+  content: "✓"; position: absolute; right: -8px; top: -8px; width: 26px; height: 26px;
+  display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--ink);
+  background: var(--crayon-green); color: #fff; font-weight: 900; font-size: 16px;
+}
+.slot.ask { animation: wiggle .5s 2; }
+
+/* Overlay cards */
+.overlay {
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+  padding: 16px; background: rgba(255, 253, 246, .55);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.card {
+  width: min(560px, 100%); max-height: 100%; overflow: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  padding: 24px 20px; background: #fff; border: 4px solid var(--ink); border-radius: 28px;
+  box-shadow: 0 8px 0 var(--ink); animation: in .35s;
+}
+@keyframes in { from { transform: scale(.8) translateY(20px); opacity: 0; } }
+.card h2 { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 6vw, 44px); line-height: 1.05; margin: 0; text-wrap: balance; }
+.card p { margin: 0; font-size: 20px; max-width: 32ch; }
+.stars { font-size: clamp(44px, 9vw, 64px); letter-spacing: 4px; line-height: 1; }
+.stars .off { filter: grayscale(1); opacity: .25; }
+.stats { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.minis { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.minis svg { width: 52px; height: 52px; }
+
+/* Title screen */
+.title { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+.title h1 { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 9vw, 76px); line-height: .95; margin: 0; text-wrap: balance; }
+.title h1 .b { color: #8b5a2b; }
+.title p { margin: 0; font-size: clamp(18px, 3vw, 22px); max-width: 34ch; }
+.parade { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 760px; }
+.parade svg { width: clamp(56px, 10vw, 84px); height: clamp(56px, 10vw, 84px); }
+.best { font-weight: 900; opacity: .7; }
+.turn { display: none; font-weight: 900; font-size: 15px; opacity: .7; text-align: center; }
+@media (orientation: portrait) and (max-width: 700px) { .turn { display: block; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Title -->
+  <section class="title" id="titleScreen">
+    <h1><span class="b">Brown Bear</span><br>Color Hunt</h1>
+    <div class="parade" id="parade"></div>
+    <p>Animals are hiding in every picture. Tap each one to color it in. Find them fast for more points!</p>
+    <button class="btn go" id="playBtn">Let's Play!</button>
+    <div class="best" id="bestLine"></div>
+  </section>
+
+  <!-- Game -->
+  <div class="bar" id="bar" hidden>
+    <button class="btn icon" id="homeBtn" aria-label="Back to start">🏠</button>
+    <div class="level" id="levelName">Sunny Meadow</div>
+    <div class="pill" aria-label="Time"><span aria-hidden="true">⏱</span><span id="time">0:00</span></div>
+    <div class="pill score" id="scorePill" aria-label="Score"><span aria-hidden="true">⭐</span><span id="score">0</span></div>
+    <button class="btn icon" id="soundBtn" aria-label="Sound on">🔊</button>
+  </div>
+  <div class="stage" id="stage" hidden></div>
+  <div class="turn" id="turn" hidden>Turn the screen sideways for a bigger picture</div>
+  <div class="tray" id="tray" hidden></div>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const rand = (n) => Math.floor(Math.random() * n);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ================= Characters (original line art, 100x100 box) ================= */
+  const CHARS = {
+    bear: { name: "Brown Bear", color: "#8b5a2b", shapes: [
+      ['ellipse cx="34" cy="92" rx="11" ry="6"'], ['ellipse cx="66" cy="92" rx="11" ry="6"'],
+      ['ellipse cx="50" cy="72" rx="25" ry="22"'], ['ellipse cx="50" cy="77" rx="13" ry="11"', "#d9a066"],
+      ['circle cx="30" cy="24" r="10"'], ['circle cx="70" cy="24" r="10"'],
+      ['circle cx="30" cy="24" r="4.5"', "#d9a066"], ['circle cx="70" cy="24" r="4.5"', "#d9a066"],
+      ['circle cx="50" cy="42" r="22"'], ['ellipse cx="50" cy="51" rx="10" ry="7.5"', "#d9a066"]
+    ], det: '<circle class="dot" cx="42" cy="38" r="2.8"/><circle class="dot" cx="58" cy="38" r="2.8"/><ellipse class="dot" cx="50" cy="48" rx="3.6" ry="2.6"/><path class="ln" d="M46 54 Q50 57 54 54"/>' },
+    bird: { name: "Red Bird", color: "#e23b2e", shapes: [
+      ['path d="M24 56 L4 44 L8 68 Z"'], ['ellipse cx="44" cy="58" rx="26" ry="18"'],
+      ['circle cx="70" cy="40" r="14"'], ['path d="M80 35 L96 41 L80 47 Z"', "#ffb020"],
+      ['path d="M28 54 Q44 40 58 56 Q44 68 28 54 Z"', "#b8261c"]
+    ], det: '<circle class="dot" cx="73" cy="37" r="2.6"/><path class="ln" d="M40 76 L37 90 M33 90 L41 90 M52 76 L54 90 M50 90 L58 90"/>' },
+    duck: { name: "Yellow Duck", color: "#ffd23f", shapes: [
+      ['path d="M20 64 L6 50 L14 76 Z"'], ['ellipse cx="46" cy="68" rx="30" ry="18"'],
+      ['circle cx="70" cy="38" r="15"'], ['path d="M83 34 Q99 35 97 42 Q90 46 83 42 Z"', "#ff8c1a"],
+      ['path d="M30 64 Q46 52 60 66 Q44 76 30 64 Z"', "#f2b705"]
+    ], det: '<circle class="dot" cx="74" cy="34" r="2.6"/>' },
+    horse: { name: "Blue Horse", color: "#2f6fd6", shapes: [
+      ['path d="M22 50 Q4 56 10 80 Q16 66 24 58 Z"', "#1d4fa3"],
+      ['rect x="25" y="62" width="8" height="28" rx="3"'], ['rect x="37" y="64" width="8" height="26" rx="3"'],
+      ['rect x="58" y="64" width="8" height="26" rx="3"'], ['rect x="69" y="62" width="8" height="28" rx="3"'],
+      ['ellipse cx="50" cy="56" rx="30" ry="15"'], ['path d="M66 50 L72 24 L86 24 L82 58 Z"'],
+      ['path d="M72 25 L68 12 L79 21 Z"'], ['ellipse cx="86" cy="30" rx="13" ry="8" transform="rotate(28 86 30)"'],
+      ['path d="M72 22 Q62 34 66 50 L70 50 Q69 36 78 22 Z"', "#1d4fa3"]
+    ], det: '<circle class="dot" cx="86" cy="26" r="2.4"/><circle class="dot" cx="95" cy="35" r="1.4"/>' },
+    frog: { name: "Green Frog", color: "#3bb54a", shapes: [
+      ['ellipse cx="24" cy="80" rx="17" ry="10"'], ['ellipse cx="76" cy="80" rx="17" ry="10"'],
+      ['ellipse cx="50" cy="66" rx="27" ry="22"'], ['ellipse cx="50" cy="73" rx="15" ry="12"', "#a8e06a"],
+      ['circle cx="33" cy="32" r="11"'], ['circle cx="67" cy="32" r="11"'],
+      ['ellipse cx="50" cy="45" rx="29" ry="16"'],
+      ['ellipse cx="38" cy="90" rx="9" ry="5"'], ['ellipse cx="62" cy="90" rx="9" ry="5"']
+    ], det: '<circle class="wh" cx="33" cy="31" r="6.5"/><circle class="wh" cx="67" cy="31" r="6.5"/><circle class="dot" cx="34" cy="32" r="3"/><circle class="dot" cx="68" cy="32" r="3"/><path class="ln" d="M36 50 Q50 59 64 50"/>' },
+    cat: { name: "Purple Cat", color: "#8e44ad", shapes: [
+      ['path d="M66 88 Q96 88 90 58 Q86 54 83 59 Q88 80 64 82 Z"'], ['ellipse cx="50" cy="72" rx="23" ry="22"'],
+      ['path d="M33 32 L31 10 L47 22 Z"'], ['path d="M67 32 L69 10 L53 22 Z"'],
+      ['circle cx="50" cy="40" r="20"'], ['ellipse cx="50" cy="77" rx="11" ry="11"', "#c39bd3"]
+    ], det: '<ellipse class="dot" cx="43" cy="38" rx="2.5" ry="3.6"/><ellipse class="dot" cx="57" cy="38" rx="2.5" ry="3.6"/><path class="dot" d="M47.5 45 L52.5 45 L50 48 Z"/><path class="ln" d="M50 48 Q47 52 44 50 M50 48 Q53 52 56 50 M28 44 L41 46 M28 50 L41 49 M72 44 L59 46 M72 50 L59 49"/>' },
+    dog: { name: "White Dog", color: "#fffaf0", shapes: [
+      ['ellipse cx="36" cy="92" rx="10" ry="6"'], ['ellipse cx="64" cy="92" rx="10" ry="6"'],
+      ['ellipse cx="50" cy="72" rx="23" ry="22"'], ['ellipse cx="60" cy="75" rx="8" ry="6"', "#3a3a3a"],
+      ['circle cx="50" cy="40" r="20"'], ['ellipse cx="50" cy="49" rx="10" ry="7"'],
+      ['path d="M33 28 Q18 32 23 58 Q35 54 37 36 Z"', "#3a3a3a"], ['path d="M67 28 Q82 32 77 58 Q65 54 63 36 Z"', "#3a3a3a"],
+      ['rect x="36" y="57" width="28" height="6" rx="3"', "#e23b2e"]
+    ], det: '<circle class="dot" cx="43" cy="38" r="2.6"/><circle class="dot" cx="57" cy="38" r="2.6"/><ellipse class="dot" cx="50" cy="46" rx="3.6" ry="2.6"/><path d="M47.5 52 Q50 59 52.5 52 Z" fill="#ff7e9a" stroke="#1f1d2b" stroke-width="1.5"/>' },
+    sheep: { name: "Black Sheep", color: "#3b3b44", shapes: [
+      ['rect x="31" y="68" width="7" height="24" rx="3"', "#26262e"], ['rect x="43" y="70" width="7" height="22" rx="3"', "#26262e"],
+      ['rect x="56" y="70" width="7" height="22" rx="3"', "#26262e"], ['rect x="66" y="68" width="7" height="24" rx="3"', "#26262e"],
+      ['circle cx="28" cy="56" r="14"'], ['circle cx="42" cy="46" r="15"'], ['circle cx="60" cy="46" r="15"'],
+      ['circle cx="72" cy="58" r="13"'], ['circle cx="58" cy="68" r="15"'], ['circle cx="38" cy="68" r="15"'],
+      ['circle cx="50" cy="57" r="18"'],
+      ['path d="M75 42 Q64 37 68 49 Z"', "#26262e"], ['ellipse cx="83" cy="50" rx="11" ry="14"', "#26262e"]
+    ], det: '<circle cx="87" cy="46" r="2.8" fill="#fff" stroke="#1f1d2b" stroke-width="1"/>' },
+    fish: { name: "Goldfish", color: "#ff9a1f", shapes: [
+      ['path d="M38 36 Q50 18 64 36 Z"', "#ff7a00"], ['path d="M42 64 Q50 78 60 64 Z"', "#ff7a00"],
+      ['path d="M26 50 L4 32 L10 50 L4 68 Z"', "#ff7a00"], ['ellipse cx="50" cy="50" rx="30" ry="19"']
+    ], det: '<circle class="wh" cx="66" cy="45" r="5"/><circle class="dot" cx="67" cy="45" r="2.4"/><path class="ln" d="M57 38 Q52 50 57 62 M78 54 Q81 55 79 57"/>' }
+  };
+  const ZIG = "M-10 6 L110 -4 L-10 22 L110 14 L-10 40 L110 32 L-10 58 L110 50 L-10 76 L110 68 L-10 94 L110 86 L-10 110 L110 104";
+  let uid = 0;
+  function charArt(id) {
+    const c = CHARS[id], n = ++uid;
+    const shapes = (fill) => c.shapes.map(([s, own]) => `<${s} fill="${fill === null ? (own || c.color) : fill}"/>`).join("");
+    return `<mask id="mk${n}" maskUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="140"><path d="${ZIG}" stroke="#fff" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="1"/></mask>` +
+      `<g class="ch-art"><g class="line">${shapes("#fff")}</g><g class="paint" mask="url(#mk${n})">${shapes(null)}</g><g>${c.det}</g></g>`;
+  }
+  function miniSVG(id) { return `<svg viewBox="-4 -4 108 108" class="ch" aria-hidden="true">${charArt(id)}</svg>`; }
+  function colorIn(root, delay = 0, dur = 750) {
+    const p = root.querySelector("mask path");
+    if (!p) return;
+    if (reduced) { p.setAttribute("stroke-dashoffset", "0"); return; }
+    const t0 = performance.now() + delay;
+    const step = (t) => {
+      const k = Math.min(1, Math.max(0, (t - t0) / dur));
+      p.setAttribute("stroke-dashoffset", String(1 - k));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /* ================= Scenery helpers (1000 x 600 page) ================= */
+  const el = (tag, attrs, c) => `<${tag} class="sc" ${attrs}${c ? ` data-c="${c}"` : ""}/>`;
+  const ln = (d) => `<path class="ln" d="${d}"/>`;
+  function blobD(cx, cy, rx, ry, n, rot = 0) {
+    const pts = [];
+    for (let i = 0; i < n; i++) { const a = rot + (i / n) * Math.PI * 2; pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); }
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < n; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % n];
+      const r = (Math.hypot(x2 - x1, y2 - y1) * 0.62).toFixed(1);
+      d += ` A${r} ${r} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    }
+    return d + "Z";
+  }
+  const S = {
+    sky: (c = "#cdeaff") => `<rect class="sc sky" x="0" y="0" width="1000" height="600" data-c="${c}"/>`,
+    ground: (d, c) => el("path", `d="${d}"`, c),
+    blob: (cx, cy, rx, ry, n, c, rot) => el("path", `d="${blobD(cx, cy, rx, ry, n, rot)}"`, c),
+    cloud: (x, y, w = 70) => S.blob(x, y, w, w * 0.42, 8, "#ffffff"),
+    sun: (x, y, r) => {
+      let rays = "";
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; rays += `M${x + Math.cos(a) * (r + 10)} ${y + Math.sin(a) * (r + 10)} L${x + Math.cos(a) * (r + 30)} ${y + Math.sin(a) * (r + 30)} `; }
+      return ln(rays) + el("circle", `cx="${x}" cy="${y}" r="${r}"`, "#ffd23f");
+    },
+    trunk: (x, y, s) => el("path", `d="M${x - 16 * s} ${y} Q${x - 10 * s} ${y - 60 * s} ${x - 11 * s} ${y - 125 * s} L${x + 11 * s} ${y - 125 * s} Q${x + 10 * s} ${y - 60 * s} ${x + 16 * s} ${y} Z"`, "#9b6a3c"),
+    crown: (x, y, s, c = "#4caf50") => S.blob(x, y - 165 * s, 82 * s, 68 * s, 9, c, 0.3),
+    tree: (x, y, s, c) => S.trunk(x, y, s) + S.crown(x, y, s, c),
+    bush: (x, y, rx, ry, c = "#5dbb63") => S.blob(x, y, rx, ry, 7, c, 0.2),
+    rock: (x, y, rx, ry) => S.blob(x, y, rx, ry, 5, "#a7a9b4", 0.6),
+    flower: (x, y, c) => {
+      let p = ln(`M${x} ${y} L${x} ${y + 40} M${x} ${y + 26} Q${x + 14} ${y + 16} ${x + 18} ${y + 22}`);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 - Math.PI / 2; p += el("circle", `cx="${x + Math.cos(a) * 11}" cy="${y + Math.sin(a) * 11}" r="8"`, c); }
+      return p + el("circle", `cx="${x}" cy="${y}" r="7"`, "#ffd23f");
+    },
+    grass: (x, y) => ln(`M${x} ${y} L${x - 8} ${y - 26} M${x + 8} ${y} L${x + 8} ${y - 32} M${x + 16} ${y} L${x + 26} ${y - 24}`),
+    fence: (x1, x2, top, bot, c = "#f3dcae") => {
+      let s = el("rect", `x="${x1}" y="${top + 22}" width="${x2 - x1}" height="14" rx="3"`, c) + el("rect", `x="${x1}" y="${bot - 34}" width="${x2 - x1}" height="14" rx="3"`, c);
+      for (let x = x1 + 6; x < x2 - 20; x += 46) s += el("path", `d="M${x} ${bot} L${x} ${top + 12} L${x + 11} ${top} L${x + 22} ${top + 12} L${x + 22} ${bot} Z"`, c);
+      return s;
+    },
+    barn: () =>
+      el("rect", `x="110" y="240" width="240" height="170"`, "#d2433a") +
+      el("path", `d="M92 254 L230 150 L368 254 Z"`, "#9e2f27") +
+      el("rect", `x="182" y="172" width="96" height="78" rx="4"`, "#ffe9a8") +
+      el("rect", `x="188" y="310" width="84" height="100"`, "#f6f0e0") + ln("M188 310 L272 410 M272 310 L188 410"),
+    sill: () => el("rect", `x="176" y="236" width="108" height="16" rx="3"`, "#d2433a"),
+    doghouse: (x, y) =>
+      el("rect", `x="${x - 62}" y="${y - 90}" width="124" height="96"`, "#f0a35e") +
+      el("path", `d="M${x - 76} ${y - 84} L${x} ${y - 150} L${x + 76} ${y - 84} Z"`, "#c4562f") +
+      el("path", `d="M${x - 26} ${y + 6} L${x - 26} ${y - 34} A26 26 0 0 1 ${x + 26} ${y - 34} L${x + 26} ${y + 6} Z"`, "#4a3a32"),
+    hay: (x, y) => el("rect", `x="${x - 55}" y="${y - 40}" width="110" height="70" rx="12"`, "#f2c94c") + ln(`M${x - 40} ${y - 30} L${x - 40} ${y + 22} M${x} ${y - 30} L${x} ${y + 22} M${x + 40} ${y - 30} L${x + 40} ${y + 22}`),
+    pond: (cx, cy, rx, ry) => S.blob(cx, cy, rx, ry, 11, "#6ec6ff", 0.1),
+    lily: (x, y, r) => el("path", `d="M${x} ${y} L${x + r * 0.9} ${y - r * 0.25} A${r} ${r * 0.55} 0 1 0 ${x + r * 0.9} ${y + r * 0.25} Z"`, "#4caf50"),
+    reeds: (x, y) => el("path", `d="M${x} ${y} Q${x - 18} ${y - 70} ${x - 10} ${y - 130} Q${x + 2} ${y - 70} ${x + 10} ${y} Z"`, "#6fbf4a") +
+      el("path", `d="M${x + 14} ${y} Q${x + 30} ${y - 60} ${x + 40} ${y - 110} Q${x + 34} ${y - 50} ${x + 26} ${y} Z"`, "#6fbf4a") +
+      ln(`M${x + 4} ${y} L${x + 4} ${y - 150}`) + el("rect", `x="${x - 4}" y="${y - 175}" width="16" height="40" rx="8"`, "#8b5a2b"),
+    mushroom: (x, y, s = 1) => el("rect", `x="${x - 9 * s}" y="${y - 30 * s}" width="${18 * s}" height="${30 * s}" rx="${6 * s}"`, "#f6f0e0") +
+      el("path", `d="M${x - 32 * s} ${y - 28 * s} Q${x} ${y - 78 * s} ${x + 32 * s} ${y - 28 * s} Z"`, "#e23b2e") +
+      el("circle", `cx="${x - 12 * s}" cy="${y - 42 * s}" r="${5 * s}"`, "#ffffff") + el("circle", `cx="${x + 10 * s}" cy="${y - 50 * s}" r="${4 * s}"`, "#ffffff"),
+    log: (x, y, w) => el("rect", `x="${x - w / 2}" y="${y - 30}" width="${w}" height="60" rx="30"`, "#9b6a3c") + el("ellipse", `cx="${x + w / 2 - 22}" cy="${y}" rx="20" ry="27"`, "#d9a066") + ln(`M${x + w / 2 - 22} ${y - 12} A12 12 0 1 1 ${x + w / 2 - 21} ${y - 12}`),
+    stream: (c = "#6ec6ff") => el("path", `d="M0 505 Q250 475 500 510 T1000 495 L1000 575 Q750 600 500 585 T0 590 Z"`, c)
+  };
+
+  /* ================= Levels ================= */
+  const LEVELS = [
+    { name: "Sunny Meadow",
+      back: () => S.sky() + S.sun(880, 95, 46) + S.cloud(200, 92) + S.cloud(540, 70, 58) +
+        S.ground("M0 330 Q200 230 420 300 Q620 360 1000 270 L1000 600 L0 600 Z", "#a8e08a") +
+        S.ground("M0 430 Q300 380 600 420 Q800 450 1000 410 L1000 600 L0 600 Z", "#7ccf5c") +
+        S.tree(190, 430, 1.3) + S.tree(960, 330, 0.7, "#66bb6a") + S.grass(330, 470) + S.grass(560, 480) + S.grass(700, 560),
+      chars: [["bird", 230, 210, 0.85], ["horse", 600, 330, 1.6], ["bear", 80, 470, 1.25], ["duck", 840, 475, 1.0, true]],
+      front: () => S.bush(90, 550, 100, 48) + S.bush(850, 550, 115, 45, "#4caf50") +
+        S.flower(380, 520, "#ff6b9a") + S.flower(440, 545, "#9b6bff") + S.flower(500, 515, "#ffb020") + S.flower(640, 548, "#e23b2e")
+    },
+    { name: "Busy Farm",
+      back: () => S.sky() + S.sun(930, 80, 38) + S.cloud(560, 80) + S.cloud(820, 150, 50) +
+        S.ground("M0 380 L1000 355 L1000 600 L0 600 Z", "#8fd16b") + S.barn() + S.doghouse(870, 430) +
+        S.pond(420, 535, 95, 32) + S.grass(560, 580) + S.grass(30, 470),
+      chars: [["cat", 230, 214, 0.78], ["sheep", 545, 318, 1.15], ["horse", 715, 280, 1.4, true], ["dog", 760, 448, 1.1], ["duck", 420, 500, 0.85]],
+      front: () => S.sill() + S.fence(380, 790, 285, 390) + S.bush(745, 525, 75, 34) + S.hay(120, 520) + S.grass(330, 560)
+    },
+    { name: "Lily Pond",
+      back: () => S.sky() + S.cloud(160, 70) + S.cloud(700, 60, 55) +
+        S.ground("M0 270 Q500 230 1000 270 L1000 600 L0 600 Z", "#8fd16b") +
+        S.tree(90, 300, 1.0, "#43a047") + S.tree(930, 300, 1.15) +
+        S.pond(500, 445, 410, 135) + S.lily(650, 455, 62) + S.lily(560, 380, 40) + S.lily(330, 500, 36),
+      chars: [["fish", 420, 470, 0.9], ["frog", 650, 418, 0.9], ["duck", 270, 398, 1.0], ["bird", 935, 140, 0.72, true], ["bear", 850, 400, 1.2, true]],
+      front: () => S.lily(470, 505, 58) + S.reeds(215, 440) + S.reeds(250, 455) + S.rock(860, 470, 95, 52) + S.reeds(760, 585) + S.flower(80, 520, "#ff6b9a") + S.flower(130, 545, "#ffb020")
+    },
+    { name: "Deep Forest",
+      back: () => S.sky("#d9f0ff") + S.ground("M0 320 Q500 300 1000 320 L1000 600 L0 600 Z", "#9bd47a") +
+        S.tree(70, 370, 1.35, "#388e3c") + S.tree(330, 350, 1.1) + S.tree(640, 355, 1.3, "#43a047") + S.tree(900, 370, 1.4, "#388e3c") +
+        S.stream() + S.rock(980, 470, 50, 30),
+      chars: [["bird", 330, 160, 0.7], ["cat", 668, 140, 0.8, true], ["bear", 185, 395, 1.15], ["sheep", 430, 405, 1.0],
+        ["dog", 730, 410, 1.05, true], ["horse", 920, 330, 1.2, true], ["frog", 300, 482, 0.78], ["duck", 525, 515, 0.82], ["fish", 800, 548, 0.66]],
+      front: () => S.bush(175, 455, 92, 44, "#4caf50") + S.log(430, 452, 150) + S.bush(735, 462, 80, 38) + S.trunk(900, 370, 1.4) +
+        S.mushroom(600, 470, 0.9) + S.mushroom(630, 480, 0.6) + S.reeds(250, 520) + S.grass(60, 600)
+    }
+  ];
+
+  /* ================= Sound + voice ================= */
+  let audio = null, soundOn = store.get("bbSound", true);
+  const soundBtn = $("soundBtn");
+  const paintSound = () => { soundBtn.textContent = soundOn ? "🔊" : "🔈"; soundBtn.setAttribute("aria-label", soundOn ? "Sound on" : "Sound off"); };
+  paintSound();
+  soundBtn.onclick = () => { soundOn = !soundOn; store.set("bbSound", soundOn); paintSound(); if (!soundOn) try { speechSynthesis.cancel(); } catch {} };
+  function tone(f, dur = 0.15, type = "triangle", when = 0, vol = 0.18) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audio.currentTime + when, o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur);
+    } catch {}
+  }
+  const sfx = {
+    found: () => [660, 880, 1175].forEach((f, i) => tone(f, 0.16, "triangle", i * 0.07)),
+    miss: () => tone(200, 0.12, "sine", 0, 0.1),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.2, "triangle", i * 0.12)),
+    tap: () => tone(600, 0.06)
+  };
+  function say(text) {
+    if (!soundOn || !("speechSynthesis" in window)) return;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.92; u.pitch = 1.15; speechSynthesis.speak(u); } catch {}
+  }
+
+  /* ================= Game state ================= */
+  const stage = $("stage"), tray = $("tray"), overlay = $("overlay"), card = $("card");
+  let levelIdx = 0, score = 0, levelScore = 0, found = new Set(), startAt = 0, elapsed = 0, running = false;
+  let lastFind = 0, hintTimer = null, tick = null, svg = null;
+  const fmt = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  const setScore = () => { $("score").textContent = score.toLocaleString(); const p = $("scorePill"); p.classList.remove("bump"); void p.offsetWidth; p.classList.add("bump"); };
+
+  function show(gameOn) {
+    $("titleScreen").hidden = gameOn;
+    ["bar", "stage", "tray", "turn"].forEach((id) => $(id).hidden = !gameOn);
+  }
+
+  function buildLevel() {
+    const L = LEVELS[levelIdx];
+    found = new Set(); levelScore = 0;
+    $("levelName").textContent = `${levelIdx + 1}. ${L.name}`;
+    $("time").textContent = "0:00";
+    const chars = L.chars.map(([id, x, y, s, flip]) => {
+      const fx = flip ? `translate(${x + 50 * s} ${y - 50 * s}) scale(${-s} ${s})` : `translate(${x - 50 * s} ${y - 50 * s}) scale(${s})`;
+      return `<g class="ch" data-id="${id}" transform="${fx}">${charArt(id)}<circle class="hit" cx="50" cy="55" r="56"/></g>`;
+    }).join("");
+    stage.innerHTML = `<svg class="scene" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${L.name} picture">
+      <clipPath id="page"><rect x="3" y="3" width="994" height="594" rx="22"/></clipPath>
+      <g clip-path="url(#page)"><g class="back">${L.back()}</g><g class="chars">${chars}</g><g class="front">${L.front()}</g></g><g class="fx"></g>
+      <rect class="frame" x="3" y="3" width="994" height="594" rx="22"/></svg>`;
+    svg = stage.querySelector("svg");
+    tray.innerHTML = L.chars.map(([id]) => `<button class="slot btn" data-id="${id}" aria-label="Find the ${CHARS[id].name}">${miniSVG(id)}</button>`).join("");
+    tray.querySelectorAll(".slot").forEach((b) => b.onclick = () => {
+      b.classList.remove("ask"); void b.offsetWidth; b.classList.add("ask");
+      say(found.has(b.dataset.id) ? `You found the ${CHARS[b.dataset.id].name}!` : `Can you find the ${CHARS[b.dataset.id].name}?`);
+    });
+    svg.addEventListener("pointerdown", onTap);
+  }
+
+  function intro() {
+    const L = LEVELS[levelIdx];
+    cardShow(`<h2>${L.name}</h2><p>Find ${L.chars.length} animals hiding in this picture!</p>
+      <div class="minis">${L.chars.map(([id]) => miniSVG(id)).join("")}</div>
+      <button class="btn go" id="goBtn">Go!</button>`);
+    say(`${L.name}. Find ${L.chars.length} animals!`);
+    $("goBtn").onclick = () => { sfx.tap(); overlay.hidden = true; startTimer(); };
+  }
+
+  function startTimer() {
+    running = true; startAt = performance.now(); lastFind = startAt; elapsed = 0;
+    clearInterval(tick);
+    tick = setInterval(() => { if (running) $("time").textContent = fmt(performance.now() - startAt); }, 250);
+    armHint();
+  }
+  function armHint() {
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => {
+      if (!running) return;
+      const left = [...svg.querySelectorAll(".ch:not(.found)")];
+      if (!left.length) return;
+      const g = left[rand(left.length)];
+      g.classList.remove("hint"); void g.getBBox(); g.classList.add("hint");
+      setTimeout(() => g.classList.remove("hint"), 1600);
+      armHint();
+    }, found.size ? 10000 : 14000);
+  }
+
+  function svgPoint(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+  function onTap(e) {
+    if (!running) return;
+    const g = e.target.closest(".ch");
+    const fx = svg.querySelector(".fx");
+    const pt = svgPoint(e);
+    if (!g || g.classList.contains("found")) {
+      sfx.miss();
+      fx.insertAdjacentHTML("beforeend", `<circle class="miss" cx="${pt.x}" cy="${pt.y}" r="30"/>`);
+      setTimeout(() => fx.querySelector(".miss")?.remove(), 600);
+      return;
+    }
+    const id = g.dataset.id, now = performance.now();
+    const since = (now - lastFind) / 1000;
+    const pts = 100 + Math.max(0, Math.round((100 - since * 8) / 10) * 10);
+    lastFind = now; found.add(id); score += pts; levelScore += pts; setScore();
+    g.classList.remove("hint"); g.classList.add("found"); colorIn(g);
+    sfx.found(); say(`You found the ${CHARS[id].name}!`);
+    const box = g.querySelector(".hit").getBoundingClientRect();
+    const c = new DOMPoint(box.left + box.width / 2, box.top + box.height / 2).matrixTransform(svg.getScreenCTM().inverse());
+    fx.insertAdjacentHTML("beforeend", `<text class="pts" x="${c.x}" y="${c.y - 40}" text-anchor="middle">+${pts}</text>`);
+    const colors = ["#e23b2e", "#ffd23f", "#2f6fd6", "#3bb54a", "#8e44ad", "#ff9a1f"];
+    for (let i = 0; i < 10; i++) {
+      const a = i / 10 * Math.PI * 2;
+      fx.insertAdjacentHTML("beforeend", `<path class="spark" d="M${c.x} ${c.y - 9} L${c.x + 3} ${c.y - 3} L${c.x + 9} ${c.y} L${c.x + 3} ${c.y + 3} L${c.x} ${c.y + 9} L${c.x - 3} ${c.y + 3} L${c.x - 9} ${c.y} L${c.x - 3} ${c.y - 3} Z" fill="${colors[i % colors.length]}" style="--dx:${Math.cos(a) * 90}px;--dy:${Math.sin(a) * 90}px"/>`);
+    }
+    const burst = [...fx.querySelectorAll(".pts,.spark")];
+    setTimeout(() => burst.forEach((n) => n.remove()), 1400);
+    const slot = tray.querySelector(`.slot[data-id="${id}"]:not(.found)`);
+    if (slot) { slot.classList.add("found"); colorIn(slot, 150); }
+    armHint();
+    if (found.size === LEVELS[levelIdx].chars.length) finishLevel();
+  }
+
+  function finishLevel() {
+    running = false; clearTimeout(hintTimer); clearInterval(tick);
+    elapsed = performance.now() - startAt;
+    $("time").textContent = fmt(elapsed);
+    const n = LEVELS[levelIdx].chars.length, secs = elapsed / 1000;
+    const stars = secs <= n * 7 ? 3 : secs <= n * 14 ? 2 : 1;
+    // The whole page colors itself in as the reward
+    svg.querySelectorAll("[data-c]").forEach((node) => {
+      node.style.transition = reduced ? "none" : `fill .7s ease ${(Math.random() * 1.2).toFixed(2)}s`;
+      node.style.fill = node.dataset.c;
+    });
+    setTimeout(() => {
+      sfx.win();
+      const last = levelIdx === LEVELS.length - 1;
+      const starRow = [1, 2, 3].map((i) => `<span class="${i <= stars ? "" : "off"}">⭐</span>`).join("");
+      if (!last) {
+        cardShow(`<h2>You colored the ${LEVELS[levelIdx].name}!</h2><div class="stars">${starRow}</div>
+          <div class="stats"><div class="pill">⏱ ${fmt(elapsed)}</div><div class="pill score">⭐ ${score.toLocaleString()}</div></div>
+          <button class="btn go" id="nextBtn">Next picture →</button>`);
+        say(stars === 3 ? "Super fast! Three stars!" : "Great job! On to the next picture!");
+        $("nextBtn").onclick = () => { sfx.tap(); levelIdx++; buildLevel(); intro(); };
+      } else {
+        const best = Math.max(score, store.get("bbBest", 0)); const isNew = score >= best && score > 0;
+        store.set("bbBest", best);
+        cardShow(`<h2>You found every animal!</h2><div class="stars">${starRow}</div>
+          <div class="minis">${Object.keys(CHARS).map(miniSVG).join("")}</div>
+          <div class="stats"><div class="pill score">⭐ ${score.toLocaleString()}</div><div class="pill">🏆 Best ${best.toLocaleString()}</div></div>
+          ${isNew ? "<p>New high score!</p>" : ""}
+          <button class="btn go" id="againBtn">Play again</button>`);
+        card.querySelectorAll(".minis .ch").forEach((m, i) => colorIn(m, i * 180));
+        say(isNew ? "You found every animal! New high score!" : "You found every animal! Hooray!");
+        $("againBtn").onclick = () => { sfx.tap(); startGame(); };
+      }
+    }, reduced ? 200 : 1700);
+  }
+
+  function cardShow(html) { card.innerHTML = html; overlay.hidden = false; }
+
+  function startGame() {
+    levelIdx = 0; score = 0; $("score").textContent = "0";
+    show(true); buildLevel(); intro();
+  }
+  function goHome() {
+    running = false; clearTimeout(hintTimer); clearInterval(tick); overlay.hidden = true;
+    try { speechSynthesis.cancel(); } catch {}
+    show(false); drawTitle();
+  }
+  $("homeBtn").onclick = () => { sfx.tap(); goHome(); };
+  $("playBtn").onclick = () => { sfx.tap(); startGame(); };
+
+  function drawTitle() {
+    const p = $("parade");
+    p.innerHTML = Object.keys(CHARS).map(miniSVG).join("");
+    p.querySelectorAll(".ch").forEach((m, i) => colorIn(m, 400 + i * 350));
+    const best = store.get("bbBest", 0);
+    $("bestLine").textContent = best ? `Best score: ${best.toLocaleString()}` : "";
+  }
+  drawTitle();
+})();
+</script>
+</body>
+</html>
