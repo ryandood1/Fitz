@@ -6,4 +6,4 @@ Open `index.html` in any browser. No install needed. Change the name in the `KID
 
 ## Brown Bear Color Hunt
 
-`color-hunt/index.html` is a hide-and-seek coloring book game inspired by the animals in *Brown Bear, Brown Bear*. Find the hidden animals in four pictures (Meadow, Farm, Pond, Forest). Each tap colors the animal in with a crayon scribble, and faster finds earn more points. Finish a picture and the whole page colors itself in.
+`color-hunt/index.html` is a hide-and-seek coloring book game inspired by the animals in *Brown Bear, Brown Bear*. Find the hidden animals in eight pictures (Meadow, Farm, Pond, Backyard, Beach, Snowy Hill, Starry Night, Forest). Each tap colors the animal in with a crayon scribble, and faster finds earn more points. Finish a picture and the whole page colors itself in.

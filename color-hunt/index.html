@@ -135,13 +135,21 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
 .minis svg { width: 52px; height: 52px; }
 
 /* Title screen */
-.title { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+.title { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding-block: 8px; }
+.title > :first-child { margin-top: auto; }
+.title > :last-child { margin-bottom: auto; }
 .title h1 { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 9vw, 76px); line-height: .95; margin: 0; text-wrap: balance; }
 .title h1 .b { color: #8b5a2b; }
 .title p { margin: 0; font-size: clamp(18px, 3vw, 22px); max-width: 34ch; }
 .parade { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 760px; }
-.parade svg { width: clamp(56px, 10vw, 84px); height: clamp(56px, 10vw, 84px); }
+.parade svg { width: clamp(48px, 9vw, 72px); height: clamp(48px, 9vw, 72px); }
 .best { font-weight: 900; opacity: .7; }
+.picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: min(640px, 100%); }
+.lvl { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 16px; min-width: 0; }
+.lvl b { font-family: var(--display); font-size: 26px; line-height: 1; }
+.lvl small { font-size: 13px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.lvl .st { font-size: 13px; letter-spacing: 1px; min-height: 16px; }
+.lvl:disabled { opacity: .45; cursor: default; box-shadow: 0 2px 0 var(--ink); }
 .turn { display: none; font-weight: 900; font-size: 15px; opacity: .7; text-align: center; }
 @media (orientation: portrait) and (max-width: 700px) { .turn { display: block; } }
 @media (prefers-reduced-motion: reduce) {
@@ -155,8 +163,9 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
   <section class="title" id="titleScreen">
     <h1><span class="b">Brown Bear</span><br>Color Hunt</h1>
     <div class="parade" id="parade"></div>
-    <p>Animals are hiding in every picture. Tap each one to color it in. Find them fast for more points!</p>
+    <p>Animals are hiding in 8 pictures. Tap each one to color it in. Find them fast for more points!</p>
     <button class="btn go" id="playBtn">Let's Play!</button>
+    <div class="picker" id="picker" aria-label="Pick a picture"></div>
     <div class="best" id="bestLine"></div>
   </section>
 
@@ -326,6 +335,42 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
       el("path", `d="M${x - 32 * s} ${y - 28 * s} Q${x} ${y - 78 * s} ${x + 32 * s} ${y - 28 * s} Z"`, "#e23b2e") +
       el("circle", `cx="${x - 12 * s}" cy="${y - 42 * s}" r="${5 * s}"`, "#ffffff") + el("circle", `cx="${x + 10 * s}" cy="${y - 50 * s}" r="${4 * s}"`, "#ffffff"),
     log: (x, y, w) => el("rect", `x="${x - w / 2}" y="${y - 30}" width="${w}" height="60" rx="30"`, "#9b6a3c") + el("ellipse", `cx="${x + w / 2 - 22}" cy="${y}" rx="20" ry="27"`, "#d9a066") + ln(`M${x + w / 2 - 22} ${y - 12} A12 12 0 1 1 ${x + w / 2 - 21} ${y - 12}`),
+    house: (x, y, w, h, wall, roof) =>
+      el("rect", `x="${x}" y="${y - h}" width="${w}" height="${h}"`, wall) +
+      el("path", `d="M${x - 20} ${y - h + 10} L${x + w / 2} ${y - h - 105} L${x + w + 20} ${y - h + 10} Z"`, roof),
+    win: (x, y, w, h, c = "#cdeaff") => el("rect", `x="${x}" y="${y}" width="${w}" height="${h}" rx="3"`, c) + ln(`M${x + w / 2} ${y} L${x + w / 2} ${y + h} M${x} ${y + h / 2} L${x + w} ${y + h / 2}`),
+    door: (x, y, w, h, c = "#c4562f") => el("rect", `x="${x}" y="${y - h}" width="${w}" height="${h}" rx="4"`, c) + el("circle", `cx="${x + w - 12}" cy="${y - h / 2}" r="4"`, "#ffd23f"),
+    swingFrame: () => ln("M515 420 L545 238 L575 420 M765 420 L795 238 L825 420") + el("rect", `x="535" y="232" width="270" height="14" rx="6"`, "#e23b2e"),
+    swingSeats: () => ln("M584 246 L584 414 M640 246 L640 414 M702 246 L702 414 M758 246 L758 414") +
+      el("rect", `x="574" y="412" width="76" height="13" rx="5"`, "#2f6fd6") + el("rect", `x="692" y="412" width="76" height="13" rx="5"`, "#2f6fd6"),
+    leaf: (x, y, a, len) => {
+      const tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, px = -Math.sin(a) * 26, py = Math.cos(a) * 26;
+      const mx = (x + tx) / 2, my = (y + ty) / 2;
+      return el("path", `d="M${x} ${y} Q${mx + px} ${my + py} ${tx} ${ty} Q${mx - px * 0.3} ${my - py * 0.3} ${x} ${y} Z"`, "#43a047");
+    },
+    palm: (x, y) => el("path", `d="M${x - 14} ${y} Q${x - 34} ${y - 120} ${x + 8} ${y - 220} L${x + 28} ${y - 214} Q${x - 8} ${y - 120} ${x + 16} ${y} Z"`, "#b07a45") +
+      [-2.8, -2.1, -1.4, -0.7, 0.1].map((a) => S.leaf(x + 18, y - 218, a, 105)).join(""),
+    umbrella: (x, y) => ln(`M${x} ${y} L${x} ${y - 165}`) +
+      el("path", `d="M${x - 115} ${y - 150} Q${x} ${y - 260} ${x + 115} ${y - 150} Q${x + 77} ${y - 168} ${x + 38} ${y - 150} Q${x} ${y - 168} ${x - 38} ${y - 150} Q${x - 77} ${y - 168} ${x - 115} ${y - 150} Z"`, "#ff6b5b"),
+    castle: (x, y) => el("rect", `x="${x - 82}" y="${y - 110}" width="38" height="110"`, "#f2c94c") + el("rect", `x="${x + 44}" y="${y - 110}" width="38" height="110"`, "#f2c94c") +
+      el("rect", `x="${x - 22}" y="${y - 130}" width="44" height="130"`, "#f2c94c") + el("rect", `x="${x - 70}" y="${y - 62}" width="140" height="62"`, "#f7d774") +
+      ln(`M${x} ${y - 130} L${x} ${y - 170}`) + el("path", `d="M${x} ${y - 170} L${x + 30} ${y - 160} L${x} ${y - 150} Z"`, "#e23b2e") +
+      el("path", `d="M${x - 14} ${y} L${x - 14} ${y - 26} A14 14 0 0 1 ${x + 14} ${y - 26} L${x + 14} ${y} Z"`, "#b07a45"),
+    ball: (x, y, r) => el("circle", `cx="${x}" cy="${y}" r="${r}"`, "#ffffff") +
+      el("path", `d="M${x} ${y - r} Q${x - r * 0.9} ${y} ${x} ${y + r} Q${x - r * 0.3} ${y} ${x} ${y - r} Z"`, "#e23b2e") +
+      el("path", `d="M${x} ${y - r} Q${x + r * 0.9} ${y} ${x} ${y + r} Q${x + r * 0.3} ${y} ${x} ${y - r} Z"`, "#2f6fd6"),
+    pine: (x, y, s, c = "#2e7d32") => el("rect", `x="${x - 9 * s}" y="${y - 30 * s}" width="${18 * s}" height="${30 * s}"`, "#9b6a3c") +
+      [[30, 110, 72], [80, 165, 58], [130, 215, 42]].map(([b, t, w]) => el("path", `d="M${x - w * s} ${y - b * s} L${x} ${y - t * s} L${x + w * s} ${y - b * s} Z"`, c)).join(""),
+    snowman: (x, y) => el("circle", `cx="${x}" cy="${y - 48}" r="50"`, "#ffffff") + el("circle", `cx="${x}" cy="${y - 122}" r="36"`, "#ffffff") +
+      el("circle", `cx="${x}" cy="${y - 178}" r="26"`, "#ffffff") + el("rect", `x="${x - 22}" y="${y - 228}" width="44" height="34" rx="3"`, "#26262e") +
+      el("rect", `x="${x - 32}" y="${y - 200}" width="64" height="9" rx="3"`, "#26262e") + el("path", `d="M${x} ${y - 178} L${x + 30} ${y - 172} L${x} ${y - 168} Z"`, "#ff8c1a") +
+      el("circle", `cx="${x - 9}" cy="${y - 186}" r="3"`, "#26262e") + el("circle", `cx="${x + 9}" cy="${y - 186}" r="3"`, "#26262e") +
+      el("circle", `cx="${x}" cy="${y - 130}" r="4"`, "#26262e") + el("circle", `cx="${x}" cy="${y - 112}" r="4"`, "#26262e") +
+      ln(`M${x - 34} ${y - 128} L${x - 75} ${y - 160} M${x + 34} ${y - 128} L${x + 75} ${y - 158}`),
+    sled: (x, y) => el("rect", `x="${x - 72}" y="${y - 24}" width="144" height="22" rx="8"`, "#e23b2e") + ln(`M${x - 60} ${y - 2} L${x - 60} ${y + 10} M${x + 50} ${y - 2} L${x + 50} ${y + 10} M${x - 84} ${y + 10} L${x + 70} ${y + 10} Q${x + 92} ${y + 10} ${x + 88} ${y - 8}`),
+    flakes: (pts) => ln(pts.map(([x, y]) => `M${x - 8} ${y} L${x + 8} ${y} M${x} ${y - 8} L${x} ${y + 8} M${x - 6} ${y - 6} L${x + 6} ${y + 6} M${x + 6} ${y - 6} L${x - 6} ${y + 6}`).join(" ")),
+    star: (x, y, r) => { let d = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; d += `${i ? "L" : "M"}${(x + Math.cos(a) * rr).toFixed(1)} ${(y + Math.sin(a) * rr).toFixed(1)} `; } return el("path", `d="${d}Z"`, "#ffd23f"); },
+    moon: (x, y, r) => el("path", `d="M${x} ${y - r} A${r} ${r} 0 1 0 ${x} ${y + r} A${r * 0.72} ${r} 0 1 1 ${x} ${y - r} Z"`, "#ffe680"),
     stream: (c = "#6ec6ff") => el("path", `d="M0 505 Q250 475 500 510 T1000 495 L1000 575 Q750 600 500 585 T0 590 Z"`, c)
   };
 
@@ -354,6 +399,40 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
         S.pond(500, 445, 410, 135) + S.lily(650, 455, 62) + S.lily(560, 380, 40) + S.lily(330, 500, 36),
       chars: [["fish", 420, 470, 0.9], ["frog", 650, 418, 0.9], ["duck", 270, 398, 1.0], ["bird", 935, 140, 0.72, true], ["bear", 850, 400, 1.2, true]],
       front: () => S.lily(470, 505, 58) + S.reeds(215, 440) + S.reeds(250, 455) + S.rock(860, 470, 95, 52) + S.reeds(760, 585) + S.flower(80, 520, "#ff6b9a") + S.flower(130, 545, "#ffb020")
+    },
+    { name: "Backyard",
+      back: () => S.sky() + S.sun(80, 80, 36) + S.cloud(520, 80) + S.cloud(790, 110, 50) +
+        S.ground("M0 400 L1000 385 L1000 600 L0 600 Z", "#8fd16b") +
+        S.house(40, 405, 260, 170, "#ffd9a0", "#6d8bd6") + S.win(62, 262, 60, 46) + S.win(228, 262, 60, 46) + S.door(145, 405, 60, 85) +
+        S.swingFrame() + S.tree(915, 410, 1.05) + S.pond(420, 512, 112, 36),
+      chars: [["cat", 612, 382, 0.72], ["bird", 905, 205, 0.68, true], ["dog", 835, 470, 1.0, true], ["frog", 72, 525, 0.72], ["duck", 420, 492, 0.82]],
+      front: () => S.swingSeats() + el("path", `d="M306 512 Q420 562 534 512 L534 538 Q420 590 306 538 Z"`, "#ff8fb1") +
+        S.bush(845, 532, 88, 38) + S.flower(36, 545, "#ff6b9a") + S.flower(84, 562, "#9b6bff") + S.flower(126, 540, "#ffb020") + S.grass(640, 560)
+    },
+    { name: "Sandy Beach",
+      back: () => S.sky("#bfe6ff") + S.sun(110, 90, 40) + S.cloud(600, 70) +
+        S.ground("M0 285 L1000 285 L1000 440 L0 440 Z", "#4fb3e8") +
+        ln("M50 320 q20 -12 40 0 q20 12 40 0 M400 360 q20 -12 40 0 q20 12 40 0 M720 315 q20 -12 40 0 q20 12 40 0") +
+        S.ground("M0 410 Q300 385 600 415 T1000 405 L1000 600 L0 600 Z", "#f7dc95") + S.palm(880, 445) + S.umbrella(300, 505),
+      chars: [["fish", 205, 360, 0.72], ["duck", 560, 330, 0.75, true], ["bird", 800, 215, 0.62], ["dog", 735, 468, 1.0], ["cat", 300, 470, 0.9]],
+      front: () => S.rock(150, 395, 55, 26) + S.castle(645, 560) + S.ball(350, 560, 32) + ln("M480 560 q10 -14 20 0 M850 540 q10 -14 20 0 M120 520 q10 -14 20 0")
+    },
+    { name: "Snowy Hill",
+      back: () => S.sky("#dbe9ff") + S.cloud(300, 80) + S.cloud(640, 60, 55) +
+        S.ground("M0 330 Q250 230 520 300 Q760 200 1000 260 L1000 600 L0 600 Z", "#eef4ff") +
+        S.ground("M0 440 Q400 400 1000 450 L1000 600 L0 600 Z", "#ffffff") +
+        S.pine(110, 400, 1.1) + S.pine(470, 300, 0.75, "#388e3c") + S.flakes([[200, 150], [420, 120], [560, 190], [880, 120], [960, 300], [60, 120]]),
+      chars: [["horse", 790, 252, 1.1, true], ["bear", 385, 430, 1.1], ["sheep", 650, 432, 1.0], ["dog", 500, 525, 0.8], ["cat", 905, 505, 0.8, true]],
+      front: () => S.snowman(285, 565) + S.pine(615, 545, 0.9) + S.sled(500, 575) + S.blob(910, 555, 88, 40, 7, "#ffffff", 0.2)
+    },
+    { name: "Starry Night",
+      back: () => S.sky("#2c3e7a") + S.moon(860, 100, 50) +
+        S.star(110, 80, 18) + S.star(300, 60, 14) + S.star(470, 115, 16) + S.star(620, 55, 12) + S.star(720, 150, 10) + S.star(980, 210, 14) +
+        S.ground("M0 400 Q500 360 1000 400 L1000 600 L0 600 Z", "#4a7c59") + S.tree(180, 410, 1.2, "#2e7d32") +
+        S.house(630, 420, 190, 130, "#c9a27a", "#7a4b8f") + S.win(655, 315, 50, 44, "#ffd23f") + S.door(745, 420, 48, 80, "#5a3b2e") +
+        S.pond(590, 558, 85, 24),
+      chars: [["bird", 205, 195, 0.68], ["bear", 330, 462, 1.1], ["sheep", 520, 372, 1.0], ["cat", 725, 182, 0.7], ["horse", 920, 378, 1.1, true], ["frog", 585, 532, 0.68]],
+      front: () => S.bush(330, 522, 95, 42, "#2e7d32") + S.fence(440, 610, 375, 452) + S.reeds(648, 598) + S.grass(60, 590) + S.grass(860, 585)
     },
     { name: "Deep Forest",
       back: () => S.sky("#d9f0ff") + S.ground("M0 320 Q500 300 1000 320 L1000 600 L0 600 Z", "#9bd47a") +
@@ -495,6 +574,8 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     $("time").textContent = fmt(elapsed);
     const n = LEVELS[levelIdx].chars.length, secs = elapsed / 1000;
     const stars = secs <= n * 7 ? 3 : secs <= n * 14 ? 2 : 1;
+    const prog = store.get("bbStars", []);
+    prog[levelIdx] = Math.max(prog[levelIdx] || 0, stars); store.set("bbStars", prog);
     // The whole page colors itself in as the reward
     svg.querySelectorAll("[data-c]").forEach((node) => {
       node.style.transition = reduced ? "none" : `fill .7s ease ${(Math.random() * 1.2).toFixed(2)}s`;
@@ -520,15 +601,15 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
           <button class="btn go" id="againBtn">Play again</button>`);
         card.querySelectorAll(".minis .ch").forEach((m, i) => colorIn(m, i * 180));
         say(isNew ? "You found every animal! New high score!" : "You found every animal! Hooray!");
-        $("againBtn").onclick = () => { sfx.tap(); startGame(); };
+        $("againBtn").onclick = () => { sfx.tap(); startGame(0); };
       }
     }, reduced ? 200 : 1700);
   }
 
   function cardShow(html) { card.innerHTML = html; overlay.hidden = false; }
 
-  function startGame() {
-    levelIdx = 0; score = 0; $("score").textContent = "0";
+  function startGame(at = 0) {
+    levelIdx = at; score = 0; $("score").textContent = "0";
     show(true); buildLevel(); intro();
   }
   function goHome() {
@@ -537,12 +618,19 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     show(false); drawTitle();
   }
   $("homeBtn").onclick = () => { sfx.tap(); goHome(); };
-  $("playBtn").onclick = () => { sfx.tap(); startGame(); };
+  $("playBtn").onclick = () => { sfx.tap(); startGame(0); };
 
   function drawTitle() {
     const p = $("parade");
     p.innerHTML = Object.keys(CHARS).map(miniSVG).join("");
     p.querySelectorAll(".ch").forEach((m, i) => colorIn(m, 400 + i * 350));
+    const prog = store.get("bbStars", []);
+    $("picker").innerHTML = LEVELS.map((L, i) => {
+      const open = i === 0 || prog[i - 1] || prog[i];
+      const st = prog[i] ? "⭐".repeat(prog[i]) : "";
+      return `<button class="btn lvl" data-lvl="${i}" ${open ? "" : "disabled"} aria-label="${open ? L.name : "Locked"}"><b>${open ? i + 1 : "🔒"}</b><small>${L.name}</small><span class="st">${st}</span></button>`;
+    }).join("");
+    $("picker").querySelectorAll(".lvl:not(:disabled)").forEach((b) => b.onclick = () => { sfx.tap(); startGame(+b.dataset.lvl); });
     const best = store.get("bbBest", 0);
     $("bestLine").textContent = best ? `Best score: ${best.toLocaleString()}` : "";
   }
