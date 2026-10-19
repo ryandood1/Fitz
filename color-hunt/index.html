@@ -446,7 +446,7 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     }
   ];
 
-  /* ================= Sound, music + voice (all made in the browser, no files) ================= */
+  /* ================= Sound + music (all made in the browser, no files) ================= */
   let audio = null, master = null, musicBus = null, noise = null;
   let soundOn = store.get("bbSound", true), musicOn = store.get("bbMusic", true);
   const soundBtn = $("soundBtn"), musicBtn = $("musicBtn");
@@ -469,14 +469,13 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
       return audio;
     } catch { return null; }
   }
-  // iPad only lets sound start from a tap, so wake audio and speech on the first touch
+  // iPad only lets sound start from a tap, so wake audio on the first touch
   let unlocked = false;
   document.addEventListener("pointerdown", () => {
     const a = ctx();
     if (unlocked || !a) return;
     unlocked = true;
     try { const b = a.createBuffer(1, 1, 22050), src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(0); } catch {}
-    try { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
   }, true);
   document.addEventListener("visibilitychange", () => { if (!audio) return; try { document.hidden ? audio.suspend() : audio.resume(); } catch {} });
 
@@ -505,15 +504,15 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     } catch {}
   }
   const ANIMAL = {
-    bear: { word: "Grr, grr!", fx: [["sawtooth", 150, 90, 0.5, 0, 0.09, true]] },
-    bird: { word: "Tweet tweet!", fx: [["sine", 2200, 3300, 0.07, 0], ["sine", 2200, 3300, 0.07, 0.11], ["sine", 2400, 3600, 0.09, 0.22]] },
-    duck: { word: "Quack quack!", fx: [["sawtooth", 560, 420, 0.13, 0, 0.08], ["sawtooth", 560, 420, 0.13, 0.2, 0.08]] },
-    horse: { word: "Neigh!", fx: [["triangle", 950, 480, 0.6, 0, 0.14, true]] },
-    frog: { word: "Ribbit ribbit!", fx: [["square", 210, 140, 0.1, 0, 0.07], ["square", 210, 140, 0.12, 0.16, 0.07]] },
-    cat: { word: "Meow!", fx: [["triangle", 500, 880, 0.18, 0, 0.16], ["triangle", 880, 520, 0.28, 0.18, 0.16]] },
-    dog: { word: "Woof woof!", fx: [["square", 330, 190, 0.11, 0, 0.09], ["square", 330, 190, 0.11, 0.22, 0.09]] },
-    sheep: { word: "Baa baa!", fx: [["sawtooth", 430, 390, 0.55, 0, 0.07, true]] },
-    fish: { word: "Blub blub!", fx: [["sine", 300, 900, 0.08, 0], ["sine", 400, 1000, 0.08, 0.13], ["sine", 350, 950, 0.08, 0.26]] }
+    bear: { fx: [["sawtooth", 150, 90, 0.5, 0, 0.09, true]] },
+    bird: { fx: [["sine", 2200, 3300, 0.07, 0], ["sine", 2200, 3300, 0.07, 0.11], ["sine", 2400, 3600, 0.09, 0.22]] },
+    duck: { fx: [["sawtooth", 560, 420, 0.13, 0, 0.08], ["sawtooth", 560, 420, 0.13, 0.2, 0.08]] },
+    horse: { fx: [["triangle", 950, 480, 0.6, 0, 0.14, true]] },
+    frog: { fx: [["square", 210, 140, 0.1, 0, 0.07], ["square", 210, 140, 0.12, 0.16, 0.07]] },
+    cat: { fx: [["triangle", 500, 880, 0.18, 0, 0.16], ["triangle", 880, 520, 0.28, 0.18, 0.16]] },
+    dog: { fx: [["square", 330, 190, 0.11, 0, 0.09], ["square", 330, 190, 0.11, 0.22, 0.09]] },
+    sheep: { fx: [["sawtooth", 430, 390, 0.55, 0, 0.07, true]] },
+    fish: { fx: [["sine", 300, 900, 0.08, 0], ["sine", 400, 1000, 0.08, 0.13], ["sine", 350, 950, 0.08, 0.26]] }
   };
   const animalSound = (id) => ANIMAL[id].fx.forEach(([type, f0, f1, d, w, v, vib]) => sweep(type, f0, f1, d, w, v ?? 0.15, vib));
   const sfx = {
@@ -547,24 +546,14 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     },
     stop() { clearInterval(this.timer); this.timer = null; }
   };
-  const duck = (on) => { if (musicBus && audio) try { musicBus.gain.setTargetAtTime(on ? 0.3 : 1, audio.currentTime, 0.1); } catch {} };
   soundBtn.onclick = () => {
     soundOn = !soundOn; store.set("bbSound", soundOn); paintSound();
-    if (!soundOn) { music.stop(); try { speechSynthesis.cancel(); } catch {} } else if (!$("bar").hidden) music.start();
+    if (!soundOn) music.stop(); else if (!$("bar").hidden) music.start();
   };
   musicBtn.onclick = () => {
     musicOn = !musicOn; store.set("bbMusic", musicOn); paintSound();
     musicOn ? music.start() : music.stop();
   };
-  function say(text) {
-    if (!soundOn || !("speechSynthesis" in window)) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text); u.rate = 0.92; u.pitch = 1.15;
-      u.onstart = () => duck(true); u.onend = u.onerror = () => duck(false);
-      speechSynthesis.speak(u);
-    } catch {}
-  }
 
   /* ================= Game state ================= */
   const stage = $("stage"), tray = $("tray"), overlay = $("overlay"), card = $("card");
@@ -595,7 +584,7 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     tray.innerHTML = L.chars.map(([id]) => `<button class="slot btn" data-id="${id}" aria-label="Find the ${CHARS[id].name}">${miniSVG(id)}</button>`).join("");
     tray.querySelectorAll(".slot").forEach((b) => b.onclick = () => {
       b.classList.remove("ask"); void b.offsetWidth; b.classList.add("ask");
-      say(found.has(b.dataset.id) ? `You found the ${CHARS[b.dataset.id].name}!` : `Can you find the ${CHARS[b.dataset.id].name}?`);
+      animalSound(b.dataset.id);
     });
     svg.addEventListener("pointerdown", onTap);
   }
@@ -605,8 +594,7 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     cardShow(`<h2>${L.name}</h2><p>Find ${L.chars.length} animals hiding in this picture!</p>
       <div class="minis">${L.chars.map(([id]) => miniSVG(id)).join("")}</div>
       <button class="btn go" id="goBtn">Go!</button>`);
-    say(`${L.name}. Find ${L.chars.length} animals!`);
-    $("goBtn").onclick = () => { sfx.tap(); say("Ready, set, go!"); overlay.hidden = true; startTimer(); };
+    $("goBtn").onclick = () => { sfx.tap(); overlay.hidden = true; startTimer(); };
   }
 
   function startTimer() {
@@ -646,7 +634,6 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
     lastFind = now; found.add(id); score += pts; levelScore += pts; setScore();
     g.classList.remove("hint"); g.classList.add("found"); colorIn(g);
     sfx.found(); scribble(); animalSound(id);
-    setTimeout(() => say(`${ANIMAL[id].word} You found the ${CHARS[id].name}!`), 550);
     const box = g.querySelector(".hit").getBoundingClientRect();
     const c = new DOMPoint(box.left + box.width / 2, box.top + box.height / 2).matrixTransform(svg.getScreenCTM().inverse());
     fx.insertAdjacentHTML("beforeend", `<text class="pts" x="${c.x}" y="${c.y - 40}" text-anchor="middle">+${pts}</text>`);
@@ -684,7 +671,6 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
         cardShow(`<h2>You colored the ${LEVELS[levelIdx].name}!</h2><div class="stars">${starRow}</div>
           <div class="stats"><div class="pill">⏱ ${fmt(elapsed)}</div><div class="pill score">⭐ ${score.toLocaleString()}</div></div>
           <button class="btn go" id="nextBtn">Next picture →</button>`);
-        say(stars === 3 ? "Super fast! Three stars!" : "Great job! On to the next picture!");
         $("nextBtn").onclick = () => { sfx.tap(); levelIdx++; buildLevel(); intro(); };
       } else {
         const best = Math.max(score, store.get("bbBest", 0)); const isNew = score >= best && score > 0;
@@ -695,7 +681,6 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
           ${isNew ? "<p>New high score!</p>" : ""}
           <button class="btn go" id="againBtn">Play again</button>`);
         card.querySelectorAll(".minis .ch").forEach((m, i) => colorIn(m, i * 180));
-        say(isNew ? "You found every animal! New high score!" : "You found every animal! Hooray!");
         $("againBtn").onclick = () => { sfx.tap(); startGame(0); };
       }
     }, reduced ? 200 : 1700);
@@ -709,7 +694,6 @@ button:focus-visible { outline: 4px solid var(--crayon-blue); outline-offset: 3p
   }
   function goHome() {
     running = false; clearTimeout(hintTimer); clearInterval(tick); overlay.hidden = true;
-    try { speechSynthesis.cancel(); } catch {}
     music.stop(); show(false); drawTitle();
   }
   $("homeBtn").onclick = () => { sfx.tap(); goHome(); };
