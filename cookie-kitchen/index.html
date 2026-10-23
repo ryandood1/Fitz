@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cookie Kitchen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@500;700&display=swap">
+<style>
+/* Layout: a kitchen counter. Step trail of pictures on top, the big scene in the middle, a drawer of tools along the bottom. */
+:root {
+  --bg: #ffe6ee;
+  --ink: #3b2416;
+  --frost: #ff6f9f;
+  --butter: #ffd45c;
+  --mint: #5fcfa6;
+  --sky: #7cc6ff;
+  --panel: #fffafc;
+  --display: "Chewy", "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+  --ui: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; color: var(--ink); font-family: var(--ui); font-size: 18px;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, #ffffff 0 3px, transparent 4px), radial-gradient(circle, #ffc9d9 0 3px, transparent 4px);
+  background-size: 46px 46px; background-position: 0 0, 23px 23px;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  overflow: hidden;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+
+.app {
+  height: 100%; display: flex; flex-direction: column; gap: 8px;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Chunky cookie-cutter buttons */
+.btn {
+  border: 3px solid var(--ink); border-radius: 18px; background: #fff;
+  box-shadow: 0 5px 0 var(--ink); transition: transform .08s, box-shadow .08s, opacity .2s;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+
+.bar { display: flex; align-items: center; gap: 10px; }
+.bar .icon { width: 52px; height: 52px; font-size: 24px; display: grid; place-items: center; flex: none; }
+.trail { flex: 1; min-width: 0; display: flex; justify-content: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.trail li {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 20px;
+  background: #fff; border: 3px solid var(--ink); opacity: .45; transition: transform .25s, opacity .25s, background .25s;
+}
+.trail li.done { opacity: 1; background: var(--mint); }
+.trail li.now { opacity: 1; background: var(--butter); transform: scale(1.25); }
+@media (max-width: 560px) { .trail li { width: 30px; height: 30px; font-size: 15px; border-width: 2px; } .trail { gap: 3px; } }
+
+.stage { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; }
+#scene {
+  width: 100%; height: 100%; touch-action: none;
+  border: 4px solid var(--ink); border-radius: 28px; background: #fff7fa;
+}
+.tag {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  padding: 6px 20px; border: 3px solid var(--ink); border-radius: 999px; background: #fff;
+  font-family: var(--display); font-size: clamp(22px, 4vw, 32px); white-space: nowrap; pointer-events: none;
+  animation: pop .45s;
+}
+
+.tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; min-height: 88px; align-items: center; }
+.tool {
+  width: 84px; height: 84px; padding: 4px; display: grid; place-items: center; font-size: 44px; line-height: 1;
+}
+.tool svg { width: 100%; height: 100%; display: block; }
+.tool.on { background: var(--butter); transform: translateY(-6px); box-shadow: 0 9px 0 var(--ink); }
+.tool.used { opacity: .3; }
+.tool.go { background: var(--mint); font-size: 46px; width: 104px; }
+.tool.wiggle { animation: wiggle .9s infinite; }
+@media (max-width: 560px) { .tool { width: 64px; height: 64px; font-size: 34px; } .tool.go { width: 80px; } .tray { gap: 8px; min-height: 70px; } }
+
+@keyframes pop { 0% { transform: translateX(-50%) scale(.4); } 70% { transform: translateX(-50%) scale(1.1); } 100% { transform: translateX(-50%) scale(1); } }
+@keyframes wiggle { 0%, 100% { rotate: 0deg; } 25% { rotate: -6deg; } 75% { rotate: 6deg; } }
+
+/* SVG bits */
+.popin { transform-box: fill-box; transform-origin: center; animation: popin .4s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes popin { from { transform: scale(0); } to { transform: scale(1); } }
+.buzz { animation: buzz .08s infinite; }
+@keyframes buzz { 50% { transform: translate(2px, -2px); } }
+.pulse { transform-box: fill-box; transform-origin: center; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { transform: scale(1.12); } }
+#trayMove { transition: transform 1s cubic-bezier(.5, 0, .3, 1); }
+#glow { transition: opacity 1s; }
+.mittG { transition: opacity .5s; }
+.steam path { animation: steam 1.6s infinite ease-out; }
+.steam path:nth-child(2) { animation-delay: .5s; }
+.steam path:nth-child(3) { animation-delay: 1s; }
+@keyframes steam { from { transform: translateY(10px); opacity: 0; } 30% { opacity: .9; } to { transform: translateY(-40px); opacity: 0; } }
+.crumb { animation: crumb .7s ease-in forwards; }
+@keyframes crumb { to { transform: translateY(70px); opacity: 0; } }
+
+/* Flying ingredient and tap hint */
+.fly { position: fixed; z-index: 30; font-size: 54px; pointer-events: none; transition: transform .5s cubic-bezier(.5, -0.4, .6, 1), opacity .5s; }
+.finger { position: fixed; z-index: 40; font-size: 60px; pointer-events: none; animation: tapme 1s infinite; filter: drop-shadow(0 3px 0 rgba(59, 36, 22, .3)); }
+@keyframes tapme { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(6px, 14px); } }
+
+/* Start screen */
+.start {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; text-align: center;
+  padding-block: 20px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: inherit;
+}
+.start .inner { display: grid; justify-items: center; gap: 14px; }
+.start h1 {
+  margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(54px, 12vw, 110px); line-height: .95;
+  color: var(--frost); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink);
+  text-wrap: balance;
+}
+.start .hero { width: min(280px, 60vw); animation: spin 14s linear infinite; }
+@keyframes spin { to { rotate: 360deg; } }
+.play { padding: 14px 56px; font-size: 54px; background: var(--butter); border-radius: 26px; }
+.jar { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 30px; padding: 6px 18px; border: 3px solid var(--ink); border-radius: 999px; background: #fff; font-variant-numeric: tabular-nums; }
+
+.confetti { position: fixed; top: -30px; z-index: 35; width: 12px; height: 18px; border-radius: 3px; pointer-events: none; animation: fall 2.6s ease-in forwards; }
+@keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .start .hero, .finger, .tool.wiggle, .pulse, .buzz, .steam path { animation: none; }
+  #trayMove { transition-duration: .2s; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <button class="btn icon" id="homeBtn" aria-label="Home">🏠</button>
+    <ol class="trail" id="trail"></ol>
+    <button class="btn icon" id="soundBtn" aria-label="Sound on">🔊</button>
+  </header>
+  <main class="stage">
+    <svg id="scene" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet" aria-label="Kitchen"></svg>
+    <div class="tag" id="tag"></div>
+  </main>
+  <nav class="tray" id="tray"></nav>
+</div>
+
+<div class="start" id="start">
+  <div class="inner">
+    <svg class="hero" id="hero" viewBox="-60 -60 120 120" aria-hidden="true"></svg>
+    <h1>Cookie Kitchen</h1>
+    <button class="btn play" id="playBtn" aria-label="Play">▶</button>
+    <div class="jar" id="jar" aria-label="Cookies baked">🍪 × <span id="jarCount">0</span></div>
+  </div>
+</div>
+<div class="finger" id="finger" hidden>👆</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+  const INK = "#3b2416";
+  const mixHex = (a, b, t) => {
+    const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
+    return "#" + [16, 8, 0].map((s) => Math.round(((A >> s) & 255) * (1 - t) + ((B >> s) & 255) * t).toString(16).padStart(2, "0")).join("");
+  };
+  const rng = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // ---------- Things in the kitchen ----------
+  const BOWLS = ["#ff8fb1", "#7cc6ff", "#ffd45c", "#6fd8ae"];
+  const BASICS = [
+    { id: "butter", e: "🧈", c: ["#ffe27a", "#ffd34d"] },
+    { id: "egg", e: "🥚", c: ["#ffb42e", "#fffaf0"] },
+    { id: "flour", e: "🌾", c: ["#fbf6ea", "#f1e8d4"] },
+    { id: "honey", e: "🍯", c: ["#f0a531", "#f7c25c"] }
+  ];
+  const FLAVORS = [
+    { id: "vanilla", e: "🍦", raw: "#f4e0b0", baked: "#dba95c", powder: "#fff0c8" },
+    { id: "choc", e: "🍫", raw: "#9b6b52", baked: "#6a3c26", powder: "#5a3322" },
+    { id: "straw", e: "🍓", raw: "#f8c2cc", baked: "#e98ea1", powder: "#ff6b8a" },
+    { id: "mint", e: "🍃", raw: "#c9ecd8", baked: "#8fcbaa", powder: "#4fc28d" }
+  ];
+  const MIXINS = ["choc", "sprinkle", "berry", "candy"];
+  const CUTTERS = ["circle", "heart", "star", "flower", "bear"];
+  const MITTS = ["#ff5d73", "#7cc6ff", "#b48cff"];
+  const FROSTS = ["#ff9fc2", "#ffffff", "#9ad8ff", "#cfaaff", "#fff07a"];
+  const SPRINK = ["#ff5d73", "#ffd45c", "#5fcfa6", "#7cc6ff", "#b48cff"];
+  const CANDY = ["#ff5d73", "#ffd45c", "#5fcfa6", "#5b8cff"];
+
+  const starPath = (() => { let d = ""; for (let i = 0; i < 10; i++) { const r = i % 2 ? 25 : 53, a = (-90 + i * 36) * Math.PI / 180; d += (i ? "L" : "M") + (r * Math.cos(a)).toFixed(1) + " " + (r * Math.sin(a) + 5).toFixed(1); } return d + "Z"; })();
+  const flowerPath = (() => { let d = ""; for (let i = 0; i < 72; i++) { const a = i * 5 * Math.PI / 180, r = 40 + 10 * Math.cos(6 * a); d += (i ? "L" : "M") + (r * Math.cos(a)).toFixed(1) + " " + (r * Math.sin(a)).toFixed(1); } return d + "Z"; })();
+  const SHAPES = {
+    circle: { svg: '<circle r="46"/>', safe: 26, cy: 0 },
+    heart: { svg: '<path d="M0 44 C-22 28 -52 8 -50 -16 C-48 -42 -14 -48 0 -22 C14 -48 48 -42 50 -16 C52 8 22 28 0 44Z"/>', safe: 18, cy: -4 },
+    star: { svg: `<path d="${starPath}"/>`, safe: 16, cy: 5 },
+    flower: { svg: `<path d="${flowerPath}"/>`, safe: 24, cy: 0 },
+    bear: { svg: '<circle cx="-31" cy="-30" r="17"/><circle cx="31" cy="-30" r="17"/><circle cy="6" r="40"/>', safe: 22, cy: 8 }
+  };
+
+  function piece(type, x, y, rot, k) {
+    x = +x.toFixed(1); y = +y.toFixed(1);
+    if (type === "choc") return `<path d="M${x - 4.5} ${y + 3.5} Q${x} ${y - 8} ${x + 4.5} ${y + 3.5} Z" fill="#4a2716"/>`;
+    if (type === "sprinkle") return `<rect x="${x - 5}" y="${y - 1.7}" width="10" height="3.4" rx="1.7" fill="${SPRINK[k % 5]}" transform="rotate(${rot} ${x} ${y})"/>`;
+    if (type === "berry") return `<circle cx="${x}" cy="${y}" r="5.2" fill="#4b55c8"/><circle cx="${x - 1.6}" cy="${y - 1.6}" r="1.5" fill="#b8c0ff"/>`;
+    return `<circle cx="${x}" cy="${y}" r="5.6" fill="${CANDY[k % 4]}" stroke="${INK}" stroke-width="1.2"/>`;
+  }
+
+  let uid = 0;
+  function cookieSVG(c, dough, shadow) {
+    const sh = SHAPES[c.shape], r = rng(c.seed * 97 + 13);
+    let s = `<g transform="translate(0 6)" fill="${shadow}" stroke="${shadow}" stroke-width="3">${sh.svg}</g>`;
+    s += `<g fill="${dough}" stroke="${INK}" stroke-width="3" stroke-linejoin="round">${sh.svg}</g>`;
+    if (c.frost) s += `<g transform="scale(.78)" fill="${c.frost}">${sh.svg}</g><ellipse cx="-14" cy="${sh.cy - 18}" rx="9" ry="5" fill="#fff" opacity=".7" transform="rotate(-25 -14 ${sh.cy - 18})"/>`;
+    c.mixins.forEach((m, mi) => {
+      for (let k = 0; k < 5; k++) {
+        const a = r() * Math.PI * 2, d = Math.sqrt(r()) * sh.safe;
+        s += piece(m, Math.cos(a) * d, Math.sin(a) * d + sh.cy, r() * 180, k + mi);
+      }
+    });
+    if (c.sprinkles) for (let k = 0; k < 16; k++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * (sh.safe + 6); s += piece("sprinkle", Math.cos(a) * d, Math.sin(a) * d + sh.cy, r() * 180, k); }
+    if (c.face) {
+      const y = sh.cy - 6;
+      s += `<circle cx="-13" cy="${y}" r="8.5" fill="#fff" stroke="${INK}" stroke-width="2"/><circle cx="13" cy="${y}" r="8.5" fill="#fff" stroke="${INK}" stroke-width="2"/>`;
+      s += `<circle cx="-11" cy="${y + 2}" r="4" fill="${INK}"/><circle cx="15" cy="${y + 2}" r="4" fill="${INK}"/>`;
+      s += `<path d="M-12 ${y + 16} Q0 ${y + 28} 12 ${y + 16}" fill="none" stroke="${INK}" stroke-width="3.5" stroke-linecap="round"/>`;
+    }
+    if (c.bites) {
+      const id = "bite" + (++uid), spots = [[-40, 44], [24, 48], [160, 46]];
+      const holes = spots.slice(0, c.bites).map(([deg, d]) => { const a = deg * Math.PI / 180; return `<circle cx="${(Math.cos(a) * d).toFixed(1)}" cy="${(Math.sin(a) * d).toFixed(1)}" r="24" fill="#000"/><circle cx="${(Math.cos(a) * (d - 14) + 12).toFixed(1)}" cy="${(Math.sin(a) * (d - 14) - 4).toFixed(1)}" r="10" fill="#000"/>`; }).join("");
+      return `<mask id="${id}" maskUnits="userSpaceOnUse" x="-80" y="-80" width="160" height="160"><rect x="-80" y="-80" width="160" height="160" fill="#fff"/>${holes}</mask><g mask="url(#${id})">${s}</g>`;
+    }
+    return s;
+  }
+
+  const TOOLS = {
+    spoon: { speed: 1, svg: `<g transform="rotate(25)"><rect x="-8" y="-165" width="16" height="140" rx="8" fill="#d99a5b" stroke="${INK}" stroke-width="5"/><ellipse rx="26" ry="34" fill="#e7ad6c" stroke="${INK}" stroke-width="5"/><ellipse cx="-6" cy="-8" rx="7" ry="12" fill="#f6cf9c"/></g>` },
+    whisk: { speed: 1.6, svg: `<g transform="rotate(20)"><rect x="-10" y="-170" width="20" height="70" rx="10" fill="#ff8fb1" stroke="${INK}" stroke-width="5"/>${[26, 16, 6].map((rx) => `<ellipse cy="-50" rx="${rx}" ry="50" fill="none" stroke="#8d97a8" stroke-width="4.5"/>`).join("")}<ellipse cy="-50" rx="26" ry="50" fill="none" stroke="${INK}" stroke-width="2" opacity=".5"/></g>` },
+    mixer: { speed: 2.6, svg: `<g><line x1="-16" y1="-95" x2="-16" y2="-20" stroke="#8d97a8" stroke-width="6"/><line x1="16" y1="-95" x2="16" y2="-20" stroke="#8d97a8" stroke-width="6"/><ellipse cx="-16" cy="-18" rx="12" ry="20" fill="none" stroke="#8d97a8" stroke-width="5"/><ellipse cx="16" cy="-18" rx="12" ry="20" fill="none" stroke="#8d97a8" stroke-width="5"/><rect x="-62" y="-170" width="124" height="80" rx="34" fill="#7cc6ff" stroke="${INK}" stroke-width="5"/><rect x="-30" y="-150" width="60" height="16" rx="8" fill="#fff" stroke="${INK}" stroke-width="3"/><circle cx="40" cy="-130" r="8" fill="#ff5d73" stroke="${INK}" stroke-width="3"/></g>` }
+  };
+  const mittSVG = (c) => `<path d="M-22 30 L-26 -12 Q-28 -40 -2 -42 Q20 -42 20 -18 L22 -4 Q38 -14 44 0 Q48 12 26 22 L24 30 Z" fill="${c}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><rect x="-26" y="26" width="54" height="16" rx="6" fill="#fff" stroke="${INK}" stroke-width="4"/>`;
+
+  // ---------- Sound (made up on the spot, no files) ----------
+  let audio = null, master = null, noise = null;
+  let soundOn = store.get("ckSound", true);
+  const soundBtn = $("soundBtn");
+  const paintSound = () => { soundBtn.textContent = soundOn ? "🔊" : "🔈"; soundBtn.setAttribute("aria-label", soundOn ? "Sound on" : "Sound off"); };
+  paintSound();
+  function ctx() {
+    try {
+      if (!audio) {
+        audio = new (window.AudioContext || window.webkitAudioContext)();
+        master = audio.createGain(); master.gain.value = 0.9; master.connect(audio.destination);
+        noise = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+        const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (audio.state === "suspended") audio.resume();
+      return audio;
+    } catch { return null; }
+  }
+  // iPad only lets sound start from a tap, so wake audio on the first touch
+  let unlocked = false;
+  document.addEventListener("pointerdown", () => {
+    const a = ctx();
+    if (unlocked || !a) return;
+    unlocked = true;
+    try { const b = a.createBuffer(1, 1, 22050), src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(0); } catch {}
+  }, true);
+  document.addEventListener("visibilitychange", () => { if (!audio) return; try { document.hidden ? audio.suspend() : audio.resume(); } catch {} });
+
+  function sweep(type, f0, f1, dur, when = 0, vol = 0.15) {
+    if (!soundOn) return;
+    const a = ctx(); if (!a) return;
+    try {
+      const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+      o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+    } catch {}
+  }
+  const tone = (f, dur = 0.15, type = "triangle", when = 0, vol = 0.18) => sweep(type, f, f, dur, when, vol);
+  function hiss(freq, dur, vol = 0.3, kind = "bandpass", when = 0) {
+    if (!soundOn) return;
+    const a = ctx(); if (!a) return;
+    try {
+      const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + when;
+      src.buffer = noise; f.type = kind; f.frequency.value = freq; f.Q.value = 1;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(f).connect(g).connect(master); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+    } catch {}
+  }
+  const sfx = {
+    tap: () => tone(620, 0.07),
+    pick: () => { tone(523, 0.1); tone(784, 0.12, "triangle", 0.07); },
+    plop: () => { sweep("sine", 700, 160, 0.22, 0, 0.3); hiss(500, 0.12, 0.15, "lowpass", 0.05); },
+    stir: (tool) => tool === "mixer" ? sweep("sawtooth", 110, 125, 0.16, 0, 0.05) : hiss(tool === "whisk" ? 2600 : 900, 0.12, 0.18),
+    sprinkle: () => { for (let i = 0; i < 6; i++) tone(1800 + Math.random() * 1600, 0.05, "sine", i * 0.035, 0.07); },
+    boop: () => sweep("sine", 300, 620, 0.16, 0, 0.25),
+    whoosh: () => hiss(700, 0.6, 0.25, "lowpass"),
+    click: () => { tone(1200, 0.03, "square", 0, 0.08); tone(900, 0.03, "square", 0.06, 0.08); },
+    tick: () => tone(1500, 0.03, "sine", 0, 0.05),
+    ding: () => { [0, 0.5].forEach((w) => { tone(1568, 1.2, "sine", w, 0.22); tone(3136, 0.6, "sine", w, 0.05); }); },
+    frost: () => sweep("sine", 400, 260, 0.3, 0, 0.18),
+    eyes: () => { sweep("sine", 900, 1400, 0.1); sweep("sine", 900, 1400, 0.1, 0.13); },
+    crunch: () => { hiss(3000, 0.07, 0.4, "highpass"); hiss(2200, 0.09, 0.35, "highpass", 0.07); hiss(2800, 0.06, 0.3, "highpass", 0.15); },
+    yum: () => { sweep("triangle", 300, 520, 0.18, 0.25, 0.2); sweep("triangle", 520, 360, 0.25, 0.43, 0.2); },
+    done: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.18, "triangle", i * 0.08)),
+    win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, "triangle", i * 0.13))
+  };
+  soundBtn.addEventListener("click", () => { soundOn = !soundOn; store.set("ckSound", soundOn); paintSound(); sfx.tap(); });
+
+  // ---------- Screen helpers ----------
+  const scene = $("scene"), tray = $("tray"), tag = $("tag"), finger = $("finger");
+  const DEFS = `<defs>
+    <pattern id="tile" width="50" height="50" patternUnits="userSpaceOnUse"><rect width="50" height="50" fill="#fff7fa"/><path d="M50 0V50H0" fill="none" stroke="#ffd9e5" stroke-width="3"/></pattern>
+    <pattern id="gingham" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#fff"/><rect width="20" height="40" fill="#ff9fbd" opacity=".55"/><rect width="40" height="20" fill="#ff9fbd" opacity=".55"/></pattern>
+    <clipPath id="bowlClip"><ellipse cx="400" cy="252" rx="188" ry="40"/></clipPath>
+  </defs>`;
+  // Wall and counter run past the picture edges so tall or wide screens never show a blank band
+  const ROOM = `<rect x="-1200" y="-1200" width="3200" height="1612" fill="url(#tile)"/><rect x="-1200" y="412" width="3200" height="1500" fill="url(#gingham)"/><line x1="-1200" y1="412" x2="2000" y2="412" stroke="${INK}" stroke-width="5"/>`;
+  const draw = (inner) => { scene.innerHTML = DEFS + ROOM + inner; };
+  function svgPt(e) { const p = scene.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(scene.getScreenCTM().inverse()); }
+  function screenOf(x, y) { const m = scene.getScreenCTM(); return { x: m.a * x + m.e, y: m.d * y + m.f }; }
+
+  function setTray(items) {
+    tray.innerHTML = "";
+    return items.map((it) => {
+      const b = document.createElement("button");
+      b.className = "btn tool" + (it.cls ? " " + it.cls : "");
+      b.innerHTML = it.html; b.setAttribute("aria-label", it.label);
+      b.addEventListener("click", () => it.on(b));
+      tray.appendChild(b);
+      return b;
+    });
+  }
+  const mark = (btns, b) => btns.forEach((x) => x.classList.toggle("on", x === b));
+  const iconSVG = (vb, inner) => `<svg viewBox="${vb}" aria-hidden="true">${inner}</svg>`;
+
+  // Pointing finger shows up when she waits a few seconds, so she always knows what to tap next
+  let hintGet = null, hintTimer = 0;
+  function hint(get) { hintGet = get; restartHint(); }
+  function restartHint() {
+    clearTimeout(hintTimer); finger.hidden = true;
+    if (!hintGet) return;
+    hintTimer = setTimeout(() => {
+      const el = typeof hintGet === "function" ? hintGet() : hintGet;
+      if (!el || !el.getBoundingClientRect) return;
+      const r = el.getBoundingClientRect();
+      if (!r.width) return;
+      finger.style.left = (r.left + r.width / 2 - 20) + "px";
+      finger.style.top = (r.top + r.height / 2 - 4) + "px";
+      finger.hidden = false;
+    }, 2600);
+  }
+  document.addEventListener("pointerdown", restartHint);
+
+  function flyTo(fromEl, emoji, x, y, then) {
+    const r = fromEl.getBoundingClientRect(), to = screenOf(x, y), f = document.createElement("div");
+    f.className = "fly"; f.textContent = emoji;
+    f.style.left = (r.left + r.width / 2 - 27) + "px"; f.style.top = (r.top + r.height / 2 - 32) + "px";
+    document.body.appendChild(f);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      f.style.transform = `translate(${to.x - r.left - r.width / 2}px, ${to.y - r.top - r.height / 2}px) scale(.6) rotate(200deg)`;
+      f.style.opacity = ".2";
+    }));
+    setTimeout(() => { f.remove(); then(); }, 520);
+  }
+  function confetti() {
+    for (let i = 0; i < 46; i++) {
+      const c = document.createElement("div");
+      c.className = "confetti";
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.background = pick([...SPRINK, "#ff9fc2"]);
+      c.style.animationDelay = Math.random() * 0.8 + "s";
+      c.style.animationDuration = 2 + Math.random() * 1.5 + "s";
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4500);
+    }
+  }
+
+  // ---------- Game state ----------
+  const STEPS = [
+    { id: "bowl", icon: "🥣", word: "Pick a bowl" },
+    { id: "add", icon: "🥚", word: "Put it in!" },
+    { id: "mix", icon: "🥄", word: "Mix mix mix" },
+    { id: "extras", icon: "🍫", word: "Yummy bits" },
+    { id: "shape", icon: "⭐", word: "Shapes" },
+    { id: "bake", icon: "🔥", word: "Bake" },
+    { id: "decorate", icon: "🎨", word: "Decorate" },
+    { id: "eat", icon: "😋", word: "Yum!" }
+  ];
+  let S, timers = [];
+  const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
+  let onDown = null, onMove = null, onUp = null;
+  scene.addEventListener("pointerdown", (e) => { if (onDown) { try { scene.setPointerCapture(e.pointerId); } catch {} onDown(svgPt(e), e); } });
+  scene.addEventListener("pointermove", (e) => { if (onMove) onMove(svgPt(e), e); });
+  ["pointerup", "pointercancel"].forEach((t) => scene.addEventListener(t, (e) => { if (onUp) onUp(svgPt(e), e); }));
+
+  function fresh() {
+    S = { step: 0, bowl: null, added: new Set(), flavor: null, blobs: [], tool: null, mix: 0, mixins: [], cutter: "circle", cookies: [], spots: [], mitt: null, phase: "", bake: 0 };
+  }
+  const flav = () => S.flavor || FLAVORS[0];
+
+  function go(i) {
+    timers.forEach(clearTimeout); timers = [];
+    onDown = onMove = onUp = null; hintGet = null; restartHint();
+    S.step = i;
+    const st = STEPS[i];
+    $("trail").innerHTML = STEPS.map((s, k) => `<li class="${k < i ? "done" : k === i ? "now" : ""}">${k < i ? "✓" : s.icon}</li>`).join("");
+    tag.textContent = st.icon + " " + st.word;
+    tag.style.animation = "none"; void tag.offsetWidth; tag.style.animation = "";
+    ENTER[st.id]();
+  }
+  const next = (ms = 900) => later(() => go(S.step + 1), ms);
+
+  // ---------- The bowl ----------
+  function contentsSVG() {
+    const f = flav();
+    if (S.mix >= 1) {
+      let s = `<ellipse cx="400" cy="262" rx="188" ry="42" fill="${f.raw}"/><ellipse cx="400" cy="250" rx="125" ry="24" fill="${mixHex(f.raw, "#ffffff", .25)}"/><ellipse cx="350" cy="244" rx="40" ry="8" fill="#fff" opacity=".35"/>`;
+      const r = rng(7);
+      S.mixins.forEach((m, mi) => { for (let k = 0; k < 9; k++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()); s += `<g transform="translate(${(400 + Math.cos(a) * d * 150).toFixed(1)} ${(254 + Math.sin(a) * d * 28).toFixed(1)}) scale(1.8)">${piece(m, 0, 0, r() * 180, k + mi)}</g>`; } });
+      return s;
+    }
+    let s = "";
+    if (S.added.size >= 3) s += `<ellipse cx="400" cy="262" rx="188" ry="42" fill="${mixHex("#f1e5c8", f.raw, S.mix)}"/>`;
+    const spin = S.mix * 8;
+    S.blobs.forEach((b) => {
+      const x = 400 + Math.cos(b.a + spin) * b.r * 165, y = 257 + Math.sin(b.a + spin) * b.r * 28;
+      s += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(b.rx * (1 + S.mix * .8)).toFixed(1)}" ry="${(b.ry * (1 + S.mix * .5)).toFixed(1)}" fill="${mixHex(b.color, f.raw, Math.min(1, S.mix * 1.1))}"/>`;
+    });
+    return s;
+  }
+  function bowlSVG() {
+    const c = S.bowl || BOWLS[0];
+    const dots = [[260, 320], [330, 370], [420, 390], [510, 360], [560, 300], [470, 310], [370, 315]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="#fff" opacity=".55"/>`).join("");
+    return `<ellipse cx="400" cy="432" rx="175" ry="16" fill="${INK}" opacity=".15"/>
+      <ellipse cx="400" cy="250" rx="200" ry="46" fill="${mixHex(c, INK, .35)}" stroke="${INK}" stroke-width="5"/>
+      <g id="contents" clip-path="url(#bowlClip)">${contentsSVG()}</g>
+      <path id="bowlBody" d="M200 250 A200 46 0 0 0 600 250 Q592 420 400 428 Q208 420 200 250Z" fill="${c}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+      ${dots}<path d="M232 286 Q248 360 318 398" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="11" stroke-linecap="round"/>`;
+  }
+  const refreshContents = () => { const g = $("contents"); if (g) g.innerHTML = contentsSVG(); };
+  const inBowl = (p) => ((p.x - 400) / 230) ** 2 + ((p.y - 300) / 170) ** 2 < 1;
+  function addBlobs(colors, n = 6) {
+    for (let i = 0; i < n; i++) S.blobs.push({ a: Math.random() * Math.PI * 2, r: Math.sqrt(Math.random()) * .85, rx: 26 + Math.random() * 24, ry: 9 + Math.random() * 6, color: colors[i % colors.length] });
+  }
+
+  const ENTER = {
+    bowl() {
+      draw(`<g id="ghost"><path d="M200 250 A200 46 0 0 0 600 250 Q592 420 400 428 Q208 420 200 250Z" fill="none" stroke="${INK}" stroke-width="4" stroke-dasharray="14 12" opacity=".35"/><ellipse cx="400" cy="250" rx="200" ry="46" fill="none" stroke="${INK}" stroke-width="4" stroke-dasharray="14 12" opacity=".35"/></g><g id="bowlSpot"></g>`);
+      const mini = (c) => iconSVG("190 190 420 250", `<ellipse cx="400" cy="250" rx="200" ry="46" fill="${mixHex(c, INK, .35)}" stroke="${INK}" stroke-width="10"/><path d="M200 250 A200 46 0 0 0 600 250 Q592 420 400 428 Q208 420 200 250Z" fill="${c}" stroke="${INK}" stroke-width="10"/>`);
+      const btns = setTray(BOWLS.map((c) => ({
+        html: mini(c), label: "Bowl",
+        on: (b) => {
+          if (S.bowl) return;
+          S.bowl = c; mark(btns, b); sfx.pick();
+          $("ghost").remove();
+          $("bowlSpot").innerHTML = `<g class="popin">${bowlSVG()}</g>`;
+          sfx.plop(); next(1100);
+        }
+      })));
+      btns.forEach((b) => b.classList.add("wiggle"));
+      hint(() => btns[1]);
+    },
+
+    add() {
+      draw(bowlSVG() + `<g id="card"></g>`);
+      const paintCard = () => {
+        const slots = [...BASICS.map((b) => ({ e: b.e, ok: S.added.has(b.id) })), { e: S.flavor ? S.flavor.e : "❓", ok: !!S.flavor }];
+        $("card").innerHTML = `<rect x="18" y="70" width="104" height="${slots.length * 62 + 16}" rx="16" fill="#fff" stroke="${INK}" stroke-width="4" transform="rotate(-3 70 200)"/>` +
+          slots.map((s, i) => `<g transform="translate(70 ${110 + i * 62})"><circle r="25" fill="${s.ok ? "#5fcfa6" : "#f4eef0"}" stroke="${INK}" stroke-width="3"/><text y="11" text-anchor="middle" font-size="30">${s.e}</text>${s.ok ? `<text x="24" y="-12" font-size="22">✅</text>` : ""}</g>`).join("");
+      };
+      paintCard();
+      const check = () => {
+        paintCard();
+        if (S.added.size === BASICS.length && S.flavor) { sfx.done(); hint(null); next(1200); }
+        else hint(() => btns.find((b) => !b.classList.contains("used")));
+      };
+      const btns = setTray([
+        ...BASICS.map((it) => ({
+          html: it.e, label: it.id,
+          on: (b) => {
+            if (S.added.has(it.id)) return;
+            S.added.add(it.id); b.classList.add("used"); sfx.tap();
+            flyTo(b, it.e, 400, 250, () => { addBlobs(it.c); refreshContents(); sfx.plop(); check(); });
+          }
+        })),
+        ...FLAVORS.map((fl) => ({
+          html: fl.e, label: fl.id, cls: "flv",
+          on: (b) => {
+            if (S.flavor) return;
+            S.flavor = fl; sfx.tap();
+            btns.filter((x) => x.classList.contains("flv")).forEach((x) => x.classList.add("used"));
+            b.classList.remove("used"); b.classList.add("on");
+            flyTo(b, fl.e, 400, 250, () => { addBlobs([fl.powder, fl.raw], 8); refreshContents(); sfx.plop(); check(); });
+          }
+        }))
+      ]);
+      hint(() => btns[0]);
+    },
+
+    mix() {
+      draw(bowlSVG() + `<rect x="250" y="70" width="300" height="30" rx="15" fill="#fff" stroke="${INK}" stroke-width="4"/><rect id="meter" x="253" y="73" width="0" height="24" rx="12" fill="#5fcfa6"/><text x="230" y="96" text-anchor="end" font-size="30">🥄</text><text x="570" y="96" font-size="30">⭐</text><g id="toolG" transform="translate(640 300)" pointer-events="none" opacity="0"><g id="toolInner"></g></g>`);
+      const toolG = $("toolG"), inner = $("toolInner"), meter = $("meter");
+      const setTool = (t) => { S.tool = t; inner.innerHTML = TOOLS[t].svg; toolG.setAttribute("opacity", "1"); hint(() => $("bowlBody")); };
+      const btns = setTray(Object.keys(TOOLS).map((t) => ({
+        html: iconSVG("-75 -180 150 225", TOOLS[t].svg), label: t,
+        on: (b) => { mark(btns, b); setTool(t); sfx.pick(); }
+      })));
+      hint(() => btns[1]);
+      let down = false, last = null, lastSound = 0, raf = 0, finished = false;
+      const bump = (amt) => {
+        if (finished) return;
+        S.mix = Math.min(1, S.mix + amt * TOOLS[S.tool].speed);
+        meter.setAttribute("width", (294 * S.mix).toFixed(1));
+        if (!raf) raf = requestAnimationFrame(() => { raf = 0; refreshContents(); });
+        const now = performance.now();
+        if (now - lastSound > 140) { lastSound = now; sfx.stir(S.tool); }
+        if (S.mix >= 1) {
+          finished = true; refreshContents(); sfx.done(); inner.classList.remove("buzz");
+          toolG.setAttribute("opacity", "0"); hint(null); next(1300);
+        }
+      };
+      onDown = (p) => {
+        if (finished) return;
+        if (!S.tool) { mark(btns, btns[0]); setTool("spoon"); }
+        down = true; last = p;
+        toolG.setAttribute("transform", `translate(${p.x} ${p.y})`);
+        if (inBowl(p)) bump(0.025);
+        if (S.tool === "mixer") inner.classList.add("buzz");
+      };
+      onMove = (p, e) => {
+        if (!S.tool || finished) return;
+        if (e.pointerType === "mouse" || down) toolG.setAttribute("transform", `translate(${p.x} ${p.y})`);
+        if (!down) return;
+        const d = Math.hypot(p.x - last.x, p.y - last.y); last = p;
+        if (inBowl(p)) bump(Math.min(d, 60) / 2600);
+      };
+      onUp = () => { down = false; inner.classList.remove("buzz"); };
+    },
+
+    extras() {
+      draw(bowlSVG());
+      const mini = (m) => { let s = ""; const r = rng(3); for (let k = 0; k < 7; k++) { const a = r() * 6.28, d = Math.sqrt(r()) * 14; s += piece(m, Math.cos(a) * d, Math.sin(a) * d, r() * 180, k); } return iconSVG("-24 -24 48 48", s); };
+      const btns = setTray([
+        ...MIXINS.map((m) => ({
+          html: mini(m), label: m,
+          on: (b) => {
+            if (S.mixins.includes(m)) return;
+            S.mixins.push(m); b.classList.add("on"); sfx.sprinkle();
+            refreshContents();
+            hint(() => btns[btns.length - 1]);
+          }
+        })),
+        { html: "✓", label: "Done", cls: "go", on: () => { sfx.done(); hint(null); go(S.step + 1); } }
+      ]);
+      hint(() => btns[0]);
+    },
+
+    shape() {
+      const SPOTS = [[230, 165], [400, 165], [570, 165], [230, 315], [400, 315], [570, 315]];
+      S.cookies = []; S.spots = SPOTS.map(() => null);
+      draw(`<ellipse cx="400" cy="425" rx="300" ry="14" fill="${INK}" opacity=".15"/><rect x="110" y="70" width="580" height="345" rx="26" fill="#c3c9d3" stroke="${INK}" stroke-width="5"/><rect x="132" y="92" width="536" height="300" rx="16" fill="#dde1e8"/>` +
+        SPOTS.map(([x, y], i) => `<circle id="spot${i}" cx="${x}" cy="${y}" r="58" fill="none" stroke="#9aa2b0" stroke-width="4" stroke-dasharray="12 10"/>`).join("") + `<g id="cookieLayer"></g>`);
+      const f = flav(), shadow = mixHex(f.raw, INK, .3);
+      const mini = (sh) => iconSVG("-62 -62 124 124", cookieSVG({ shape: sh, seed: 1, mixins: [] }, f.raw, shadow));
+      const btns = setTray(CUTTERS.map((sh) => ({
+        html: mini(sh), label: sh, cls: sh === S.cutter ? "on" : "",
+        on: (b) => { S.cutter = sh; mark(btns, b); sfx.pick(); }
+      })));
+      hint(() => $("spot" + S.spots.indexOf(null)));
+      onDown = (p) => {
+        let best = -1, bd = 140;
+        SPOTS.forEach(([x, y], i) => { const d = Math.hypot(p.x - x, p.y - y); if (!S.spots[i] && d < bd) { bd = d; best = i; } });
+        if (best < 0) return;
+        const c = { shape: S.cutter, seed: best + 1, mixins: S.mixins.slice(), frost: null, sprinkles: false, face: false, bites: 0 };
+        S.spots[best] = c; S.cookies[best] = c;
+        const [x, y] = SPOTS[best];
+        $("spot" + best).setAttribute("opacity", "0");
+        $("cookieLayer").insertAdjacentHTML("beforeend", `<g transform="translate(${x} ${y}) scale(1.1)"><g class="popin">${cookieSVG(c, f.raw, shadow)}</g></g>`);
+        sfx.boop();
+        if (!S.spots.includes(null)) { onDown = null; sfx.done(); hint(null); next(1100); }
+      };
+    },
+
+    bake() {
+      const f = flav();
+      S.phase = "mitt"; S.bake = 0;
+      draw(`<ellipse cx="600" cy="420" rx="170" ry="12" fill="${INK}" opacity=".15"/>
+        <rect x="440" y="70" width="320" height="345" rx="24" fill="#f2f4f8" stroke="${INK}" stroke-width="5"/>
+        <path d="M444 140 H756" stroke="${INK}" stroke-width="4"/>
+        <g id="knob" transform="translate(510 105)"><g class="pulse" id="knobPulse"><circle r="26" fill="#ff5d73" stroke="${INK}" stroke-width="4"/><path d="M-7 -11 L12 0 L-7 11Z" fill="#fff"/></g></g>
+        <g transform="translate(690 105)"><circle r="26" fill="#fff" stroke="${INK}" stroke-width="4"/><path id="pie" d="" fill="#ffd45c"/><circle r="4" fill="${INK}"/></g>
+        <text x="600" y="117" text-anchor="middle" font-size="34">🔥</text>
+        <rect id="door" x="465" y="165" width="270" height="228" rx="16" fill="#e3e7ee" stroke="${INK}" stroke-width="4"/>
+        <rect x="492" y="174" width="216" height="13" rx="6.5" fill="#b8bfcc" stroke="${INK}" stroke-width="3"/>
+        <rect x="495" y="205" width="210" height="160" rx="12" fill="#3d2b25"/>
+        <rect id="glow" x="495" y="205" width="210" height="160" rx="12" fill="#ff9a3c" opacity="0"/>
+        <line x1="505" y1="350" x2="695" y2="350" stroke="#7a5a4a" stroke-width="3"/>
+        <g transform="translate(220 380)"><g id="trayMove">
+          <g id="trayCookies"></g>
+          <rect x="-150" y="-6" width="300" height="22" rx="8" fill="#c3c9d3" stroke="${INK}" stroke-width="4"/>
+          <g class="mittG" id="mittG" transform="translate(-170 -8) rotate(-15)"></g>
+        </g></g>
+        <rect x="495" y="205" width="210" height="160" rx="12" fill="none" stroke="${INK}" stroke-width="6"/>
+        <g class="steam" id="steam" opacity="0" stroke="#c9ced8" stroke-width="6" fill="none" stroke-linecap="round">
+          <path d="M150 320 q-10 -14 0 -28 q10 -14 0 -28"/><path d="M220 315 q-10 -14 0 -28 q10 -14 0 -28"/><path d="M290 320 q-10 -14 0 -28 q10 -14 0 -28"/>
+        </g>`);
+      const paintCookies = () => {
+        const dough = mixHex(f.raw, f.baked, S.bake), shadow = mixHex(mixHex(f.raw, INK, .3), mixHex(f.baked, INK, .35), S.bake);
+        $("trayCookies").innerHTML = S.cookies.map((c, i) => `<g transform="translate(${-125 + i * 50} -26) scale(.44)">${cookieSVG(c, dough, shadow)}</g>`).join("");
+      };
+      paintCookies();
+      const pie = (t) => { if (t <= 0) return ""; if (t >= 1) return "M0 -22 A22 22 0 1 1 -0.01 -22Z"; const a = t * Math.PI * 2 - Math.PI / 2; return `M0 0 L0 -22 A22 22 0 ${t > .5 ? 1 : 0} 1 ${(22 * Math.cos(a)).toFixed(2)} ${(22 * Math.sin(a)).toFixed(2)}Z`; };
+      $("knobPulse").classList.remove("pulse");
+      const btns = setTray(MITTS.map((c) => ({
+        html: iconSVG("-50 -50 100 100", mittSVG(c)), label: "Oven mitt",
+        on: (b) => {
+          mark(btns, b); sfx.pick();
+          $("mittG").innerHTML = `<g class="popin">${mittSVG(c)}</g>`;
+          if (S.phase === "mitt") { S.phase = "load"; hint(() => $("trayCookies")); }
+        }
+      })));
+      hint(() => btns[0]);
+      onDown = (p) => {
+        const onTray = p.x < 420 && p.y > 280, onOven = p.x > 430;
+        const onKnob = Math.hypot(p.x - 510, p.y - 105) < 50;
+        if ((S.phase === "load" || S.phase === "mitt") && (onTray || onOven) && $("mittG").innerHTML) {
+          S.phase = "loading"; sfx.whoosh();
+          $("trayMove").style.transform = "translate(380px, -42px) scale(.62)";
+          $("mittG").style.opacity = "0";
+          later(() => { S.phase = "start"; $("knobPulse").classList.add("pulse"); hint(() => $("knob")); }, 1050);
+        } else if (S.phase === "mitt") {
+          hint(() => btns[0]); restartHint();
+          btns.forEach((b) => { b.classList.add("wiggle"); later(() => b.classList.remove("wiggle"), 1200); });
+        } else if (S.phase === "start" && (onKnob || onOven)) {
+          S.phase = "baking"; hint(null); sfx.click();
+          $("knobPulse").classList.remove("pulse");
+          $("glow").setAttribute("opacity", ".85");
+          const t0 = performance.now(), DUR = 6500;
+          let lastTick = 0;
+          const step = (now) => {
+            if (S.step !== 5) return;
+            const t = Math.min(1, (now - t0) / DUR);
+            S.bake = t; paintCookies(); $("pie").setAttribute("d", pie(t));
+            if (now - lastTick > 500) { lastTick = now; sfx.tick(); }
+            if (t < 1) requestAnimationFrame(step);
+            else {
+              sfx.ding(); $("glow").setAttribute("opacity", ".25"); S.phase = "out";
+              $("door").classList.add("pulse"); hint(() => $("door"));
+            }
+          };
+          requestAnimationFrame(step);
+        } else if (S.phase === "out" && onOven) {
+          S.phase = "done"; hint(null); sfx.whoosh();
+          $("door").classList.remove("pulse"); $("glow").setAttribute("opacity", "0");
+          $("trayMove").style.transform = "none";
+          $("mittG").style.opacity = "1";
+          later(() => { $("steam").setAttribute("opacity", "1"); sfx.done(); }, 1000);
+          next(3000);
+        }
+      };
+    },
+
+    decorate() {
+      plate();
+      const tools = [
+        ...FROSTS.map((c) => ({ kind: "frost", c, html: iconSVG("-30 -30 60 60", `<path d="M-20 6 Q-24 -16 0 -22 Q24 -16 20 6 Q14 20 0 24 Q-14 20 -20 6Z" fill="${c}" stroke="${INK}" stroke-width="3.5"/><path d="M-10 -4 Q0 -14 10 -4 Q0 4 -10 -4" fill="#fff" opacity=".6"/>`) })),
+        { kind: "sprinkles", html: iconSVG("-30 -30 60 60", `<rect x="-14" y="-10" width="28" height="34" rx="6" fill="#fff" stroke="${INK}" stroke-width="3.5"/><rect x="-16" y="-20" width="32" height="12" rx="4" fill="#ff5d73" stroke="${INK}" stroke-width="3.5"/>${[0, 1, 2, 3, 4, 5].map((k) => piece("sprinkle", -8 + (k % 3) * 8, 2 + Math.floor(k / 3) * 10, k * 50, k)).join("")}`) },
+        { kind: "face", html: "👀" }
+      ];
+      let cur = null;
+      const btns = setTray([
+        ...tools.map((t) => ({ html: t.html, label: t.kind, on: (b) => { cur = t; mark(btns, b); sfx.pick(); hint(() => $("ck" + S.cookies.findIndex((c) => !c.frost && !c.face && !c.sprinkles))); } })),
+        { html: "✓", label: "Done", cls: "go", on: () => { sfx.done(); hint(null); go(S.step + 1); } }
+      ]);
+      hint(() => btns[0]);
+      let touched = 0;
+      onDown = (p) => {
+        const i = nearCookie(p); if (i < 0) return;
+        if (!cur) { cur = tools[0]; mark(btns, btns[0]); }
+        const c = S.cookies[i];
+        if (cur.kind === "frost") { c.frost = cur.c; sfx.frost(); }
+        else if (cur.kind === "sprinkles") { c.sprinkles = true; sfx.sprinkle(); }
+        else { c.face = !c.face; sfx.eyes(); }
+        paintPlateCookie(i, true);
+        if (++touched >= 3) hint(() => btns[btns.length - 1]);
+      };
+    },
+
+    eat() {
+      plate();
+      const jar = store.get("ckJar", 0) + S.cookies.length;
+      store.set("ckJar", jar); $("jarCount").textContent = jar;
+      later(() => { confetti(); sfx.win(); }, 200);
+      setTray([
+        { html: "🔄", label: "Bake again", cls: "go", on: () => { sfx.pick(); fresh(); go(0); } },
+        { html: "🏠", label: "Home", on: () => { sfx.tap(); showStart(); } }
+      ]);
+      hint(() => $("ck0"));
+      onDown = (p) => {
+        const i = nearCookie(p); if (i < 0) return;
+        const c = S.cookies[i];
+        c.bites++; sfx.crunch();
+        const [x, y] = PLATE[i];
+        crumbs(x, y);
+        if (c.bites >= 4) { c.gone = true; sfx.yum(); $("ck" + i).remove(); }
+        else paintPlateCookie(i, false);
+        if (S.cookies.every((k) => k.gone)) { later(() => { confetti(); sfx.win(); }, 300); }
+        hint(() => $("ck" + S.cookies.findIndex((k) => !k.gone)));
+      };
+    }
+  };
+
+  // Plate shared by decorate and eat
+  const PLATE = [[225, 185], [400, 172], [575, 185], [225, 340], [400, 352], [575, 340]];
+  function plate() {
+    draw(`<ellipse cx="400" cy="275" rx="340" ry="200" fill="${INK}" opacity=".12"/><ellipse cx="400" cy="262" rx="340" ry="200" fill="#fff" stroke="${INK}" stroke-width="5"/><ellipse cx="400" cy="262" rx="290" ry="160" fill="none" stroke="#ffc1d4" stroke-width="8"/><g id="plateLayer">${S.cookies.map((c, i) => c.gone ? "" : `<g id="ck${i}" transform="translate(${PLATE[i][0]} ${PLATE[i][1]}) scale(1.3)"></g>`).join("")}</g><g id="fx"></g>`);
+    S.cookies.forEach((c, i) => { if (!c.gone) paintPlateCookie(i, false); });
+  }
+  function paintPlateCookie(i, pop) {
+    const f = flav(), g = $("ck" + i);
+    if (!g) return;
+    const html = cookieSVG(S.cookies[i], f.baked, mixHex(f.baked, INK, .35));
+    g.innerHTML = pop ? `<g class="popin">${html}</g>` : html;
+  }
+  function nearCookie(p) {
+    let best = -1, bd = 90;
+    PLATE.forEach(([x, y], i) => { const d = Math.hypot(p.x - x, p.y - y); if (S.cookies[i] && !S.cookies[i].gone && d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  function crumbs(x, y) {
+    const f = flav(), fx = $("fx"); let s = "";
+    for (let k = 0; k < 7; k++) s += `<circle class="crumb" cx="${(x + (Math.random() - .5) * 90).toFixed(1)}" cy="${(y + (Math.random() - .3) * 50).toFixed(1)}" r="${(3 + Math.random() * 4).toFixed(1)}" fill="${f.baked}" stroke="${INK}" stroke-width="1.5"/>`;
+    fx.insertAdjacentHTML("beforeend", `<g>${s}</g>`);
+    const g = fx.lastChild; later(() => g.remove(), 800);
+  }
+
+  // ---------- Start screen ----------
+  const heroCookie = { shape: "circle", seed: 4, mixins: ["choc", "candy"], frost: "#ff9fc2", sprinkles: true, face: true, bites: 0 };
+  $("hero").innerHTML = cookieSVG(heroCookie, FLAVORS[0].baked, mixHex(FLAVORS[0].baked, INK, .35));
+  $("jarCount").textContent = store.get("ckJar", 0);
+  function showStart() {
+    timers.forEach(clearTimeout); timers = [];
+    onDown = onMove = onUp = null; hintGet = null; restartHint();
+    $("start").hidden = false;
+    hint(() => $("playBtn"));
+  }
+  $("playBtn").addEventListener("click", () => { ctx(); sfx.win(); $("start").hidden = true; fresh(); go(0); });
+  $("homeBtn").addEventListener("click", () => { sfx.tap(); showStart(); });
+
+  fresh();
+  showStart();
+})();
+</script>
+</body>
+</html>
